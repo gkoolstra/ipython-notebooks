@@ -19,38 +19,60 @@ from TrapAnalysis import trap_analysis, import_data, artificial_anneal as anneal
 
 # Parameters:
 box_length = 40E-6
-N_electrons = 300
-N_cols = 60
-N_rows = 5
-resVs = np.arange(3.0, 0.05, -0.01)
+N_electrons = 50
+N_cols = 25
+N_rows = 2
+resVs = np.arange(1.0, 0.05, -0.01)
 
-h = 0.78E-3
+h = 0.74E-3
 fitdomain=(-2E-3, 2E-3)
 
 epsilon = 1e-10
 use_gradient = True
 gradient_tolerance = 1E1
 
-annealing_steps = [0.5]*10
+annealing_steps = [1.0]*10
 simulation_name = "resonator_sweep_%d_electrons_with_perturbing" % N_electrons
 save_path = r"/Users/gkoolstra/Desktop/Electron optimization/Realistic potential/Resonator"
 sub_dir = time.strftime("%y%m%d_%H%M%S_{}".format(simulation_name))
 save = True
 
 # Load the data from the dsp file:
-path = r'/Users/gkoolstra/Desktop/Electron optimization/Realistic potential/Potentials/M016 V5 XZ potential/160524 - M016v5 resonator xz cut.dsp'
+path = r'/Users/gkoolstra/Desktop/Electron optimization/Realistic potential/Potentials/2D Resonator Potentials/DCBiasPotential.dsp'
 elements, nodes, elem_solution, bounding_box = import_data.load_dsp(path)
 
 xdata, ydata, Udata = interpolate_slow.prepare_for_interpolation(elements, nodes, elem_solution)
 
-xinterp, yinterp, Uinterp = interpolate_slow.evaluate_on_grid(xdata, ydata, Udata, xeval=np.linspace(-10E-3, 10E-3, 501),
+# Do not evaluate the files on the simulation boundary, this gives errors.
+# Here I construct an array from y0 to -dy/2, with spacing dy. This limits
+# our choice for y-points because, the spacing must be such that there's
+# an integer number of points in yeval. This can only be the case if
+# dy = 2 * ymin / (2*k+1) and Ny = ymin / dy - 0.5 + 1
+# yeval = y0, y0 - dy, ... , -3dy/2, -dy/2
+
+x0 = -3.0E-3 # Starting point for y
+k = 501 # This defines the sampling
+dx = 2*np.abs(x0)/np.float(2*k+1)
+xeval = np.linspace(x0, -dx/2., (np.abs(x0)-0.5*dx)/dx + 1)
+
+xinterp, yinterp, Uinterp = interpolate_slow.evaluate_on_grid(xdata, ydata, Udata, xeval=xeval,
                                                      yeval=h, clim=(0.00, 1.00), plot_axes='xy', linestyle='None',
                                                      cmap=plt.cm.viridis, plot_data=False,
                                                      **common.plot_opt("darkorange", msize=6))
 
+# Mirror around the y-axis
+xsize = len(Uinterp[0])
+Uinterp_symmetric = np.zeros(2*xsize)
+Uinterp_symmetric[:xsize] = Uinterp[0]
+Uinterp_symmetric[xsize:] = Uinterp[0][::-1]
+
+x_symmetric = np.zeros(2 * xsize)
+x_symmetric[:xsize] = xinterp[0]
+x_symmetric[xsize:] = -xinterp[0][::-1]
+
 plt.figure(figsize=(5.,3.))
 common.configure_axes(12)
-plt.plot(xinterp[0], -Uinterp[0], '.k')
+plt.plot(x_symmetric, -Uinterp_symmetric, '.k')
 plt.ylim(-0.8, 0.1)
 plt.xlim(-3E-3, 3E-3)
 plt.ylabel("$U_{\mathrm{ext}}$ (eV)")
@@ -58,8 +80,8 @@ plt.xlabel("$x$ (mm)")
 
 ax = plt.gca()
 ax.set_axis_bgcolor('none')
-fr, ferr = kfit.fit_poly(xinterp[0], -Uinterp[0], mode='even', fitparams=[0, 1E4, 1E4], domain=fitdomain)
-plt.plot(xinterp[0], kfit.polyfunc_even(xinterp[0], *fr), color='r', lw=2.0)
+fr, ferr = kfit.fit_poly(x_symmetric, -Uinterp_symmetric, mode='even', fitparams=[0, 1E4, 1E4], domain=fitdomain)
+plt.plot(x_symmetric, kfit.polyfunc_even(x_symmetric, *fr), color='r', lw=2.0)
 
 t = trap_analysis.TrapSolver()
 t.get_electron_frequency([fr[0], -fr[1]/1E6], [ferr[0], -ferr[1]/1E6]);
@@ -68,11 +90,12 @@ t.get_electron_frequency([fr[0], -fr[1]/1E6], [ferr[0], -ferr[1]/1E6]);
 if N_cols*N_rows != N_electrons:
     raise ValueError("N_cols and N_rows are not compatible with N_electrons")
 else:
-    separation = 400E-9
+    y_separation = 1.25E-6
+    x_separation = 1.0E-6
     y0 = -15E-6
-    ys = np.linspace(y0, y0+N_cols*separation, N_cols)
+    ys = np.linspace(y0, y0+N_cols*y_separation, N_cols)
     yinit = np.tile(np.array(ys), N_rows)
-    xs = np.linspace(-(N_rows-1)/2.*separation, +(N_rows-1)/2.*separation, N_rows)
+    xs = np.linspace(-(N_rows-1)/2.*x_separation, +(N_rows-1)/2.*x_separation, N_rows)
     xinit = np.repeat(xs, N_cols)
 
 electron_initial_positions = anneal.xy2r(xinit, yinit)
@@ -99,7 +122,7 @@ conv_mon_save_path = os.path.join(save_path, sub_dir, "Figures")
 
 
 for k, Vres in tqdm(enumerate(resVs)):
-    EP = anneal.ResonatorSolver(xinterp[0]*1E-3, -Vres*Uinterp[0], box_length=box_length)
+    EP = anneal.ResonatorSolver(x_symmetric*1E-3, -Vres*Uinterp_symmetric, box_length=box_length)
 
     if use_gradient:
         jac = EP.grad_total

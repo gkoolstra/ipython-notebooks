@@ -18,7 +18,7 @@ from Common import common
 from TrapAnalysis import artificial_anneal as anneal
 
 save_path = r"/Users/gkoolstra/Desktop/Electron optimization/Realistic potential/Resonator"
-sub_dir = r"161105_233623_resonator_sweep_300_electrons_with_perturbing"
+sub_dir = r"161107_153311_resonator_sweep_50_electrons_with_perturbing"
 
 dbin = 0.010E-6
 bins = np.arange(-2.00E-6, 2.00E-6+dbin, dbin)
@@ -43,7 +43,7 @@ with h5py.File(os.path.join(os.path.join(save_path, sub_dir), "Results.h5"), "r"
 
 fig=plt.figure(figsize=(7.,4.))
 common.configure_axes(12)
-plt.pcolormesh(Vres, bins[:-1]*1E6, electron_histogram.T, vmin=0, vmax=50, cmap=plt.cm.hot_r)
+plt.pcolormesh(Vres, bins[:-1]*1E6, np.log10(electron_histogram.T), vmin=0, vmax=1, cmap=plt.cm.hot_r)
 plt.colorbar()
 plt.xlim(Vres[0], Vres[-1])
 plt.ylim(np.min(bins)*1E6, np.max(bins)*1E6)
