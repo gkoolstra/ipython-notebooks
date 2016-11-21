@@ -11,17 +11,17 @@ use_gradient = True
 gradient_tolerance = 1E1
 epsilon = 1E-12
 
-N_resonator_electrons = 150
+N_resonator_electrons = 75
 N_trap_electrons = np.int(11 / 50. * N_resonator_electrons)
 resonator_box_length = 40E-6
 resonator_annealing_steps = [1.0] * 10
 trap_annealing_steps = [1.0] * 10
 
-Vres = 0.15
-Vtrap = 0.15
+Vres = 0.30
+Vtrap = 0.00
 Vrg = 0.00
 Vcg = 0.00
-Vtg = -0.20
+Vtg = -0.30
 
 simulation_name = "Combined_Model"
 save_path = r"/Users/gkoolstra/Desktop/Electron optimization/Realistic potential/Combined Model"
@@ -32,7 +32,8 @@ save = False
 xeval = np.linspace(-4, 9.5, 501)
 yeval = anneal.construct_symmetric_y(-3.0, 121)
 
-master_path = r"/Users/gkoolstra/Desktop/Electron optimization/Realistic potential/Potentials/V6 - Greater Trap Area"
+master_path = r"/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/Greater Trap Area/V1"
+#master_path = r"/Users/gkoolstra/Desktop/Electron optimization/Realistic potential/Potentials/V6 - Greater Trap Area"
 x_eval, y_eval, output = anneal.load_data(master_path, xeval=xeval, yeval=yeval, mirror_y=True,
                                           extend_resonator=True, do_plot=False)
 # Note: x_eval and y_eval are 2D arrays that contain the x and y coordinates at which the potentials are evaluated
@@ -213,7 +214,7 @@ plt.colorbar()
 plt.xlim(np.min(x_eval), 14)  # np.max(x_eval) + resonator_box_length * 1E6)
 plt.ylim(np.min(y_eval), np.max(y_eval))
 
-common.save_figure(fig2, save_path=save_path)
+#common.save_figure(fig2, save_path=save_path)
 
 num_unbounded_electrons = anneal.check_unbounded_electrons(best_trap['x'],
                                                            xdomain=(np.min(x_eval) * 1E-6, np.max(x_eval) * 1E-6),
