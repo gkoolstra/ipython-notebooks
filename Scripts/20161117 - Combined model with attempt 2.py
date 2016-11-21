@@ -11,21 +11,20 @@ use_gradient = True
 gradient_tolerance = 1E1
 epsilon = 1E-12
 
-N_trap_electrons = np.int(11/50. * 75)
-trap_annealing_steps = [1.0] * 10
-
-N_resonator_electrons = 75
+N_resonator_electrons = 150
+N_trap_electrons = np.int(11 / 50. * N_resonator_electrons)
 resonator_box_length = 40E-6
 resonator_annealing_steps = [1.0] * 10
+trap_annealing_steps = [1.0] * 10
 
-Vres = 0.20
-Vtrap = 0.90
+Vres = 0.15
+Vtrap = 0.15
 Vrg = 0.00
 Vcg = 0.00
-Vtg = 0.00
+Vtg = -0.20
 
 simulation_name = "Combined_Model"
-save_path = r"/Users/gkoolstra/Desktop/Electron optimization/Realistic potential/Resonator"
+save_path = r"/Users/gkoolstra/Desktop/Electron optimization/Realistic potential/Combined Model"
 sub_dir = time.strftime("%y%m%d_%H%M%S_{}".format(simulation_name))
 save = False
 
@@ -45,7 +44,12 @@ U_resonator = -Vres * output[0]['V'][-1, :]
 RS = anneal.ResonatorSolver(y_eval[:, -1], U_resonator, efield_data=None,
                             box_length=resonator_box_length, spline_order_x=3, smoothing=0)
 
-res_initial_condition = anneal.get_rectangular_initial_condition(N_resonator_electrons, N_rows=None, N_cols=None)
+res_initial_condition = anneal.setup_initial_condition(N_resonator_electrons,
+                                                       (-2.5E-6, 2.5E-6),
+                                                       (-0.75 * resonator_box_length / 2.,
+                                                        +0.75 * resonator_box_length / 2.),
+                                                       0E-6, 0E-6)
+
 x_init, y_init = anneal.r2xy(res_initial_condition)
 
 if use_gradient:
@@ -68,15 +72,17 @@ ConvMon = anneal.ConvergenceMonitor(Uopt=RS.Vtotal, grad_Uopt=RS.grad_total, N=1
                                     coordinate_transformation=RS.coordinate_transformation)
 
 res_minimizer_options = {'jac': jac,
-                     'options': {'disp': False, 'gtol': gradient_tolerance, 'eps': epsilon},
-                     'callback': ConvMon.monitor_convergence}
+                         'options': {'disp': False, 'gtol': gradient_tolerance, 'eps': epsilon},
+                         'callback': ConvMon.monitor_convergence}
 
 res = minimize(RS.Vtotal, res_initial_condition, method='CG', **res_minimizer_options)
 
 if res['status'] > 0:
     cprint("WARNING: Initial minimization for Resonator did not converge!", "red")
     print("Final L-inf norm of gradient = %.2f eV/m" % (np.amax(res['jac'])))
-else:
+    best_res = res
+    best_res['x'] = RS.coordinate_transformation(best_res['x'])
+if 1:
     cprint("SUCCESS: Initial minimization for Resonator converged!", "green")
     # This maps the electron positions within the simulation domain
     res['x'] = RS.coordinate_transformation(res['x'])
@@ -95,7 +101,7 @@ res_electrons_y, res_electrons_x = anneal.r2xy(best_res['x'])
 # For the next part we will need to transform the coordinates of the resonator electrons
 # to the boundary of the resonator. We add half of the box length and move it to the right side of the trap area box.
 res_right_x = np.max(x_eval)
-res_electrons_x += resonator_box_length / 2. + res_right_x
+res_electrons_x += resonator_box_length / 2. + res_right_x - 1.5E-6
 
 print("Switching to greater trap area...")
 t = trap_analysis.TrapSolver()
@@ -149,7 +155,11 @@ ConvMon = anneal.ConvergenceMonitor(Uopt=CMS.Vtotal, grad_Uopt=CMS.grad_total, N
                                     save_path=conv_mon_save_path)
 ConvMon.figsize = (8., 2.)
 
-trap_initial_condition = anneal.get_rectangular_initial_condition(N_trap_electrons, N_rows=None, N_cols=None, x0=4.0E-6)
+trap_initial_condition = anneal.setup_initial_condition(N_trap_electrons,
+                                                        (np.min(x_eval) * 1E-6, np.max(x_eval) * 1E-6),
+                                                        (-2.5E-6, 2.5E-6),
+                                                        4.0E-6, 0E-6)
+
 x_trap_init, y_trap_init = anneal.r2xy(trap_initial_condition)
 
 trap_minimizer_options = {'jac': CMS.grad_total,
@@ -160,7 +170,7 @@ trap = minimize(CMS.Vtotal, trap_initial_condition, method='CG', **trap_minimize
 
 if trap['status'] > 0:
     cprint("WARNING: Initial minimization for Trap did not converge!", "red")
-    print("Final L-inf norm of gradient = %.2f eV/m" % (np.amax(res['jac'])))
+    print("Final L-inf norm of gradient = %.2f eV/m" % (np.amax(trap['jac'])))
     best_trap = trap
 else:
     cprint("SUCCESS: Initial minimization for Trap converged!", "green")
@@ -178,7 +188,7 @@ else:
 trap_electrons_x, trap_electrons_y = anneal.r2xy(best_trap['x'])
 
 # Plot the resonator and trap electron configuration
-fig2 = plt.figure(figsize=(9.5, 2.5))
+fig2 = plt.figure(figsize=(12, 3))
 common.configure_axes(12)
 plt.pcolormesh(x_eval, y_eval, CMS.V(X_eval, Y_eval), cmap=plt.cm.Spectral_r, vmax=0.0, vmin=-0.75 * Vres)
 plt.pcolormesh((y_box + res_right_x + resonator_box_length / 2.) * 1E6, x_box * 1E6, RS.V(X_box, Y_box).T,
@@ -187,17 +197,30 @@ plt.plot((y_init + res_right_x + resonator_box_length / 2.) * 1E6, x_init * 1E6,
 plt.plot(x_trap_init * 1E6, y_trap_init * 1E6, 'o', color='mediumpurple', alpha=0.5)
 plt.plot(trap_electrons_x * 1E6, trap_electrons_y * 1E6, 'o', color='violet', alpha=1.0)
 plt.plot(res_electrons_x * 1E6, res_electrons_y * 1E6, 'o', color='deepskyblue', alpha=1.0)
+for k, name in enumerate(["$V_\mathrm{res}$", "$V_\mathrm{trap}$", "$V_\mathrm{rg}$", "$V_\mathrm{cg}$", "$V_\mathrm{tg}$"]):
+    Vs = [Vres, Vtrap, Vrg, Vcg, Vtg]
+    plt.text(-0.0, 2.6 - 0.35 * k, name+" = %.2f V" % Vs[k], fontdict={'size': 10, 'color': 'black', 'ha' : 'right'})
+
+if best_res['status'] > 0:
+    plt.text(8, -2, "Minimization did not converge", fontdict={"size" : 10})
+if best_trap['status'] > 0:
+    plt.text(2, -2, "Minimization did not converge", fontdict={"size" : 10})
+
 plt.xlabel("$x$ ($\mu$m)")
 plt.ylabel("$y$ ($\mu$m)")
-plt.title("Resonator configuration")
+plt.title("Combined model: res, trap = (%d, %d) electrons" % (N_resonator_electrons, N_trap_electrons))
 plt.colorbar()
-plt.xlim(np.min(x_eval), np.max(x_eval) + resonator_box_length * 1E6)
+plt.xlim(np.min(x_eval), 14)  # np.max(x_eval) + resonator_box_length * 1E6)
 plt.ylim(np.min(y_eval), np.max(y_eval))
 
-num_unbounded_electrons = anneal.check_unbounded_electrons(best_trap['x'],
-                                                           xdomain=(np.min(x_eval)*1E-6, np.max(x_eval)*1E-6),
-                                                           ydomain=(np.min(y_eval)*1E-6, np.max(y_eval)*1E-6))
+common.save_figure(fig2, save_path=save_path)
 
-print("Number of unbounded electrons = %d"%num_unbounded_electrons)
+num_unbounded_electrons = anneal.check_unbounded_electrons(best_trap['x'],
+                                                           xdomain=(np.min(x_eval) * 1E-6, np.max(x_eval) * 1E-6),
+                                                           ydomain=(np.min(y_eval) * 1E-6, np.max(y_eval) * 1E-6))
+
+print("Number of unbounded electrons = %d" % num_unbounded_electrons)
+print("Electron density on resonator = %.2e" % \
+      anneal.get_electron_density_by_area(anneal.xy2r(res_electrons_x, res_electrons_y)))
 
 plt.show()
