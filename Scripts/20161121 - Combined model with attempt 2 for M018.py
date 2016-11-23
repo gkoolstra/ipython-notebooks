@@ -10,6 +10,7 @@ from TrapAnalysis import trap_analysis, artificial_anneal as anneal
 use_gradient = True
 gradient_tolerance = 1E1
 epsilon = 1E-12
+smoothing = 0
 
 N_resonator_electrons = 25
 N_trap_electrons = np.int(11 / 50. * N_resonator_electrons)
@@ -19,7 +20,7 @@ trap_annealing_steps = [0.5] * 10
 
 Vres = 0.50
 Vtrap = 0.00
-Vrg = 0.00
+Vrg = -0.50
 Vcg = 0.00
 Vtg = -0.50
 
@@ -43,13 +44,13 @@ U_resonator = -Vres * output[0]['V'][-1, :]
 
 # Solve resonator potential
 RS = anneal.ResonatorSolver(y_eval[:, -1], U_resonator, efield_data=None,
-                            box_length=resonator_box_length, spline_order_x=3, smoothing=0)
+                            box_length=resonator_box_length, spline_order_x=3, smoothing=smoothing)
 
 res_initial_condition = anneal.setup_initial_condition(N_resonator_electrons,
                                                        (-1.5E-6, 1.5E-6),
                                                        (-0.75 * resonator_box_length / 2.,
                                                         +0.75 * resonator_box_length / 2.),
-                                                       0E-6, 0E-6)
+                                                        0E-6, 0E-6)
 
 x_init, y_init = anneal.r2xy(res_initial_condition)
 
@@ -116,7 +117,7 @@ combined_potential = t.get_combined_potential(cropped_potentials, coefficients)
 
 CMS = anneal.CombinedModelSolver(x_eval * 1E-6, y_eval * 1E-6, -combined_potential.T,
                                  anneal.xy2r(res_electrons_x, res_electrons_y),
-                                 spline_order_x=3, spline_order_y=3, smoothing=0.01)
+                                 spline_order_x=3, spline_order_y=3, smoothing=smoothing)
 
 X_eval, Y_eval = np.meshgrid(x_eval * 1E-6, y_eval * 1E-6)
 
@@ -133,7 +134,9 @@ if 1:
     plt.ylabel("$y$ ($\mu$m)")
     plt.title("Resonator configuration")
     plt.colorbar()
-    plt.xlim(np.min(x_eval), np.max(x_eval) + resonator_box_length * 1E6)
+    plt.xlim(res_right_x * 1E6, (res_right_x + resonator_box_length) * 1E6)
+    plt.ylim(-5, 5)
+
 
 # Solve for the electron positions in the trap area!
 ConvMon = anneal.ConvergenceMonitor(Uopt=CMS.Vtotal, grad_Uopt=CMS.grad_total, N=10,
@@ -162,7 +165,7 @@ if trap['status'] > 0:
 else:
     cprint("SUCCESS: Initial minimization for Trap converged!", "green")
     # This maps the electron positions within the simulation domain
-    trap['x'] = RS.coordinate_transformation(trap['x'])
+    #trap['x'] = RS.coordinate_transformation(trap['x'])
 
     cprint("Perturbing solution %d times at %.2f K" \
            % (len(trap_annealing_steps), trap_annealing_steps[0]), "green")
@@ -180,10 +183,13 @@ common.configure_axes(12)
 plt.pcolormesh(x_eval, y_eval, CMS.V(X_eval, Y_eval), cmap=plt.cm.Spectral_r, vmax=0.0, vmin=-0.75 * Vres)
 plt.pcolormesh((y_box + res_right_x + resonator_box_length / 2.) * 1E6, x_box * 1E6, RS.V(X_box, Y_box).T,
                cmap=plt.cm.Spectral_r, vmax=0.0, vmin=-0.75 * Vres)
+anneal.draw_electrode_outline(os.path.join(master_path, "ElectrodeOutline2.dxf"), x0=0.0, y0=0.0,
+                              **{"color": 'k', "linewidth": 1.0, "alpha": 0.25})
 plt.plot((y_init + res_right_x + resonator_box_length / 2.) * 1E6, x_init * 1E6, 'o', color='paleturquoise', alpha=0.5)
 plt.plot(x_trap_init * 1E6, y_trap_init * 1E6, 'o', color='mediumpurple', alpha=0.5)
 plt.plot(trap_electrons_x * 1E6, trap_electrons_y * 1E6, 'o', color='violet', alpha=1.0)
 plt.plot(res_electrons_x * 1E6, res_electrons_y * 1E6, 'o', color='deepskyblue', alpha=1.0)
+
 for k, name in enumerate(["$V_\mathrm{res}$", "$V_\mathrm{trap}$", "$V_\mathrm{rg}$", "$V_\mathrm{cg}$", "$V_\mathrm{tg}$"]):
     Vs = [Vres, Vtrap, Vrg, Vcg, Vtg]
     plt.text(-2.0, 4.15 - 0.6 * k, name+" = %.2f V" % Vs[k], fontdict={'size': 10, 'color': 'black', 'ha' : 'right'})
@@ -197,7 +203,7 @@ plt.xlabel("$x$ ($\mu$m)")
 plt.ylabel("$y$ ($\mu$m)")
 plt.title("Combined model: res, trap = (%d, %d) electrons" % (N_resonator_electrons, N_trap_electrons))
 plt.colorbar()
-plt.xlim(np.min(x_eval), 20)  # np.max(x_eval) + resonator_box_length * 1E6)
+plt.xlim(np.min(x_eval), 18)  # np.max(x_eval) + resonator_box_length * 1E6)
 plt.ylim(np.min(y_eval), np.max(y_eval))
 
 #common.save_figure(fig2, save_path=save_path)
@@ -212,4 +218,19 @@ resonator_ns_area = anneal.get_electron_density_by_area(anneal.xy2r(res_electron
 resonator_ns_pos = anneal.get_electron_density_by_position(anneal.xy2r(res_electrons_x, res_electrons_y))
 print("Electron density on resonator = %.2e (by area) or %.2e (by position)" % (resonator_ns_area, resonator_ns_pos))
 
+fig3 = plt.figure(figsize=(6, 6))
+common.configure_axes(12)
+plt.subplot(211)
+plt.plot(x_eval, CMS.V(x_eval*1E-6, 0), color='violet', lw=1.5)
+plt.xlabel("$x$ ($\mu$m)")
+plt.ylabel("Energy (eV)")
+plt.xlim(np.min(x_eval), np.max(x_eval))
+
+plt.subplot(212)
+plt.plot(x_eval, 1E-3 * (CMS.dVdx(x_eval*1E-6, np.zeros(len(x_eval))) + CMS.dVbgdx(x_eval*1E-6, np.zeros(len(x_eval)))),
+         color="orchid", lw=1.5)
+plt.xlabel("$x$ ($\mu$m)")
+plt.ylabel("$\partial V/ \partial x$ (keV/m)")
+plt.xlim(np.min(x_eval), np.max(x_eval))
+plt.ylim(-100, 100)
 plt.show()
