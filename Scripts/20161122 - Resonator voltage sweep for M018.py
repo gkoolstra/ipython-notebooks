@@ -20,11 +20,11 @@ from TrapAnalysis import trap_analysis, import_data, artificial_anneal as anneal
 # Parameters:
 box_length = 40E-6
 N_electrons = 150
-N_rows = 1
+N_rows = 2
 row_spacing = 0.20E-6
-N_cols = 150
+N_cols = 75
 col_spacing = 0.20E-6
-resVs = [0.20]
+resVs = np.arange(2.00, 0.06, -0.01)
 
 h = 0.74
 fitdomain = (-0.75, 0.75)
@@ -33,12 +33,12 @@ epsilon = 1e-10
 use_gradient = True
 gradient_tolerance = 1E1
 
-annealing_steps = []
+annealing_steps = [1.00]*10
 simulation_name = "M018V1_resonator_sweep_%d_electrons" % N_electrons
 save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Resonator"
 sub_dir = time.strftime("%y%m%d_%H%M%S_{}".format(simulation_name))
 save = True
-create_movie = False
+create_movie = True
 
 # Load the data from the dsp file:
 path = r'/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/Greater Trap Area/V1big/DCBiasPotential.dsp'
@@ -50,11 +50,17 @@ x0 = -2.0 # Starting point for y
 k = 251 # This defines the sampling
 xeval = anneal.construct_symmetric_y(x0, k)
 
-#fig0 = plt.figure(figsize=(5.,3.))
+fig0 = plt.figure(figsize=(5.,3.))
 xinterp, yinterp, Uinterp = interpolate_slow.evaluate_on_grid(xdata, ydata, Udata, xeval=xeval,
-                                                     yeval=h, clim=(0.00, 1.00), plot_axes='xy', linestyle='None',
-                                                     cmap=plt.cm.viridis, plot_data=False,
+                                                     yeval=np.linspace(-1,1,151), clim=(0.00, 1.00), plot_axes='xy', linestyle='None',
+                                                     cmap=plt.cm.viridis, plot_data=True,
                                                      **common.plot_opt("darkorange", msize=6))
+
+xinterp, yinterp, Uinterp = interpolate_slow.evaluate_on_grid(xdata, ydata, Udata, xeval=xeval,
+                                                              yeval=h, clim=(0.00, 1.00),
+                                                              plot_axes='xy', linestyle='None',
+                                                              cmap=plt.cm.viridis, plot_data=False,
+                                                              **common.plot_opt("darkorange", msize=6))
 
 # Mirror around the y-axis
 xsize = len(Uinterp[0])
@@ -106,6 +112,7 @@ time.sleep(1)
 os.mkdir(os.path.join(save_path, sub_dir, "Figures"))
 
 if save:
+    common.save_figure(fig0, save_path=os.path.join(save_path, sub_dir))
     common.save_figure(fig1, save_path=os.path.join(save_path, sub_dir))
 
 # Save the data to a single file
@@ -131,7 +138,7 @@ for k, Vres in tqdm(enumerate(resVs)):
 
     ConvMon = anneal.ConvergenceMonitor(Uopt=EP.Vtotal, grad_Uopt=EP.grad_total, N=10,
                                         Uext=EP.V,
-                                        xext=x_box, yext=y_box, verbose=True, eps=epsilon,
+                                        xext=x_box, yext=y_box, verbose=False, eps=epsilon,
                                         save_path=conv_mon_save_path, figsize=(4, 6),
                                         coordinate_transformation=coordinate_transformation)
 
@@ -169,7 +176,7 @@ for k, Vres in tqdm(enumerate(resVs)):
     f.create_dataset("step_%04d/electrons_in_trap" % k, data=PP.get_trapped_electrons(res['x']))
 
     # Use the solution from the current time step as the initial condition for the next timestep!
-    electron_initial_positions = res['x']
+    #electron_initial_positions = res['x']
 
 f.close()
 
