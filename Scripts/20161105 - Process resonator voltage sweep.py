@@ -17,40 +17,49 @@ else:
 from Common import common
 from TrapAnalysis import artificial_anneal as anneal
 
-save_path = r"/Users/gkoolstra/Desktop/Electron optimization/Realistic potential/Resonator"
-sub_dir = r"161107_153311_resonator_sweep_50_electrons_with_perturbing"
+save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Resonator"
+sub_dir = r"161123_144607_M018V1_resonator_sweep_150_electrons"
 
-dbin = 0.010E-6
-bins = np.arange(-2.00E-6, 2.00E-6+dbin, dbin)
-Vres = list()
+dbin = 0.006E-6
+bins = np.arange(-0.50E-6, 0.50E-6+dbin, dbin)
 converged = list()
 save = True
 
 with h5py.File(os.path.join(os.path.join(save_path, sub_dir), "Results.h5"), "r") as f:
-    for k, step in enumerate(f.keys()):
-        electron_ri = f[step + "/electron_final_coordinates"][()]
-        xi, yi = anneal.r2xy(electron_ri)
+    k = 0
+    for step in f.keys():
+        if "step" in step:
+            #print(step)
+            electron_ri = f[step + "/electron_final_coordinates"][()]
+            xi, yi = anneal.r2xy(electron_ri)
 
-        electron_hist, bin_edges = np.histogram(xi, bins=bins)
+            electron_hist, bin_edges = np.histogram(xi, bins=bins)
 
-        if k == 0:
-            electron_histogram = electron_hist
-        else:
-            electron_histogram = np.vstack((electron_histogram, electron_hist))
+            if k == 0:
+                electron_histogram = electron_hist
+            else:
+                electron_histogram = np.vstack((electron_histogram, electron_hist))
 
-        Vres.append(f[step + "/potential_coefficients"][()])
-        converged.append(f[step + "/solution_valid"][()])
+            converged.append(f[step + "/solution_converged"][()])
+            k += 1
 
-fig=plt.figure(figsize=(7.,4.))
+    #print("Ja!")
+    Vres = f["Vres"][()]
+
+print("Out of %d simulations, %d did not converge..." % (len(Vres), len(Vres) - np.sum(converged)))
+
+fig = plt.figure(figsize=(7.,4.))
 common.configure_axes(12)
-plt.pcolormesh(Vres, bins[:-1]*1E6, np.log10(electron_histogram.T), vmin=0, vmax=1, cmap=plt.cm.hot_r)
+plt.pcolormesh(Vres, bins[:-1]*1E6, np.log10(electron_histogram.T), vmin=0, vmax=2.0, cmap=plt.cm.hot_r)
 plt.colorbar()
 plt.xlim(Vres[0], Vres[-1])
 plt.ylim(np.min(bins)*1E6, np.max(bins)*1E6)
 plt.xlabel("Resonator voltage (V)")
 plt.ylabel("Position across the channel ($\mu$m)")
+plt.title(r"$^{10}\log (n_\ell)$ for bin size = %.1f nm"%(dbin*1E9))
 
 if save:
     common.save_figure(fig, os.path.join(save_path, sub_dir))
 
+print("Done!")
 plt.show()
