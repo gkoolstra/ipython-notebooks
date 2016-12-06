@@ -87,21 +87,21 @@ xinterp, yinterp, Uinterp = interpolate_slow.evaluate_on_grid(xdata, ydata, Udat
                                                               **common.plot_opt("darkorange", msize=6))
 
 if 1:
-    fig1 = plt.figure(figsize=(5., 3.))
+    fig1 = plt.figure(figsize=(6., 4.))
     common.configure_axes(12)
-    plt.plot(x_symmetric, -Uinterp_symmetric, '.k')
+    plt.plot(x_symmetric, -Uinterp_symmetric, 'o', **common.plot_opt('red', msize=4))
     plt.ylim(-0.8, 0.1)
     plt.xlim(-2, 2)
     plt.ylabel("$U_{\mathrm{ext}}$ (eV)")
     plt.xlabel("$x$ (mm)")
     plt.title("DC Bias potential data")
 
-    fig2 = plt.figure(figsize=(5., 3.))
+    fig2 = plt.figure(figsize=(6., 4.))
     common.configure_axes(12)
-    plt.plot(xinterp[0], Uinterp[0], '.k')
+    plt.plot(xinterp[0], Uinterp[0]/1E3, 'o', **common.plot_opt('red', msize=4))
     # plt.ylim(-0.8, 0.1)
     plt.xlim(-2, 2)
-    plt.ylabel("$E_{x}$ (eV/m)")
+    plt.ylabel("$E_{x}$ (keV/m)")
     plt.xlabel("$x$ (mm)")
     plt.title("Differential mode Ex data")
 
@@ -114,7 +114,6 @@ def get_resonator_constants():
     constants = {'f0': 8E9, 'Z0': 70.0, 'Q': 10000, 'P': -100, 'l': 3000E-6}
     return constants
 
-
 def get_physical_constants():
     """
     Returns a dictionary of physical constants used in the calculations in this module.
@@ -123,6 +122,35 @@ def get_physical_constants():
     constants = {'e': 1.602E-19, 'm_e': 9.11E-31, 'eps0': 8.85E-12, 'hbar': 1.055E-34}
     return constants
 
+def get_V0():
+    """
+    Returns the single photon voltage
+    :return: V0 in V
+    """
+    c = get_physical_constants()
+    r = get_resonator_constants()
+    return c['hbar'] * 2 * np.pi * r['f0'] / c['e']
+
+def get_z0(electron_frequency):
+    """
+    Returns the electron motion quantum in m
+    :param electron_frequency: frequency in Hz
+    :return: z0 in m
+    """
+    c = get_physical_constants()
+    return np.sqrt(c['hbar'] / (2 * c['m_e'] * 2 * np.pi * electron_frequency))
+
+def get_g(electron_frequency, Efield):
+    """
+    This returns the coupling in units of radians: g[rad] = 2*pi*g[Hz]
+    :param electron_frequency: electron frequency in Hz
+    :param Efield: Electric field evaluated at a single point in space, with 1V applied to the electrodes
+    :return: g[rad] = 2 * pi * g[Hz]
+    """
+    c = get_physical_constants()
+    V0 = get_V0()
+    z0 = get_z0(electron_frequency)
+    return c['e'] * V0 * Efield * z0 / c['hbar']
 
 def calculate_metrics(xi, yi, eps=1E-15):
     Xi, Yi = np.meshgrid(xi, yi)
@@ -153,7 +181,6 @@ def calculate_metrics(xi, yi, eps=1E-15):
 
     return R_ij, theta_ij
 
-
 def setup_eom(electron_positions, Vres, eps=1E-15):
     """
     Sets up the inverse matrix that needs to be solved
@@ -167,9 +194,8 @@ def setup_eom(electron_positions, Vres, eps=1E-15):
     omega0 = 2 * np.pi * r['f0']
     L = r['Z0'] / omega0
     C = 1 / (omega0 ** 2 * L)
-    V0 = c['hbar'] * omega0 / c['e']
 
-    RS = anneal.ResonatorSolver(x_symmetric * 1E-6, -Vres * Uinterp_symmetric, efield_data=V0 * Uinterp[0])
+    RS = anneal.ResonatorSolver(x_symmetric * 1E-6, -Vres * Uinterp_symmetric, efield_data=Uinterp[0])
 
     num_electrons = np.int(len(electron_positions) / 2)
     xi, yi = anneal.r2xy(electron_positions)
@@ -198,6 +224,10 @@ def setup_eom(electron_positions, Vres, eps=1E-15):
 
     return np.dot(invM, K)
 
+#RS = anneal.ResonatorSolver(x_symmetric * 1E-6, -0.50 * Uinterp_symmetric, efield_data=3E-5 * Uinterp[0])
+
+#plt.figure()
+#plt.plot(np.linspace(-2, 2)*1E-6, RS.Ex(np.linspace(-2, 2)*1E-6, 0))
 
 def solve_eom(LHS):
     """
@@ -234,7 +264,7 @@ for k, resV in tqdm(enumerate(Vres)):
     # Now save the electron mode frequency of the mode that couples second strongest to the cavity
     electron_f.append(np.sqrt(evals[ranked_cavity_contributions[-2]]) / (2 * np.pi * 1E9))
     # And save the cavity mode frequency
-    cavity_f.append(np.sqrt(evals[cavity_mode_idx]) / (2 * np.pi * 1E9))
+    cavity_f.append(np.sqrt(evals[cavity_mode_idx]) / (2 * np.pi))
 
 if 0:
     plt.figure(figsize=(6., 4.))
@@ -278,9 +308,10 @@ for i, m in enumerate(modes):
     plt.subplot(3, 3, i + 1)
 
     if two_rows:
-        plt.plot(Eigenvectors[sorted_left_idxs, m, Voi_idx], '-o', label="Left row", **common.plot_opt("red", msize=4))
         plt.plot(Eigenvectors[sorted_right_idxs, m, Voi_idx], '-o', label="Right row",
                  **common.plot_opt("black", msize=5))
+        plt.plot(Eigenvectors[sorted_left_idxs, m, Voi_idx], '-o', label="Left row",
+                 **common.plot_opt("red", msize=4))
     else:
         plt.plot(Eigenvectors[sorted_idxs, m, Voi_idx], '-o', **common.plot_opt("red", msize=4))
 
@@ -305,8 +336,8 @@ f_02 = [np.sqrt(Eigenvalues[k, ten_strongest_mode_numbers[k, -2]]) / (2 * np.pi 
 
 fig5 = plt.figure(figsize=(6., 4.))
 plt.title("Frequency of modes that couple strongest")
-plt.plot(Vres, f_01, color="cyan", label="cavity")
-plt.plot(Vres, f_02, color="navy", label="2nd strongest")
+plt.plot(Vres, f_01, 'o', label="cavity", **common.plot_opt('cyan', msize=4))
+plt.plot(Vres, f_02, 'o', label="2nd strongest", **common.plot_opt('navy', msize=4))
 plt.ylabel("Frequency of modes that couple strongest (GHz)")
 plt.xlabel("Resonator voltage (V)")
 plt.legend(loc=0, prop={"size": 10})
@@ -324,13 +355,16 @@ if 0:
     plt.legend(loc=0, prop={"size": 10})
 
 r = get_resonator_constants()
-delta_f = np.array(cavity_f) * 1e9 - r['f0']
+delta_f = np.array(cavity_f) - r['f0']
 scaled_cavity_frequency = r['f0'] + delta_f * r['l'] / box_y_length
+
+print("The resonator is %.0f um long, which is %.1f box lengths"%(r['l'] * 1E6, r['l'] / box_y_length))
+print("On the resonator there are %d electrons" % (N_electrons * r['l'] / box_y_length))
 
 # Here we plot the scaled cavity frequency shift vs. the resonator voltage.
 fig6 = plt.figure(figsize=(6., 4.))
-plt.plot(Vres, delta_f / 1E6 * r['l'] / box_y_length, '-k')
-plt.ylabel("Cavity frequency shift $\Delta \omega_0/2\pi$ (MHz)")
+plt.plot(Vres, scaled_cavity_frequency / 1E9, 'o', **common.plot_opt('red', msize=4))
+plt.ylabel("Scaled cavity frequency $\omega_0/2\pi$ (GHz)")
 plt.xlabel("Resonator voltage (V)")
 
 if save:
@@ -348,17 +382,31 @@ plt.pcolormesh(xplot * 1E6, yplot * 1E6, RS.V(Xplot, Yplot), cmap=plt.cm.Spectra
 plt.plot(electron_positions[Voi_idx, ::2] * 1E6, electron_positions[Voi_idx, 1::2] * 1E6, 'o', color='blueviolet')
 
 if two_rows:
+    print("There are %d electrons in the left row and %d electrons in the right row." % \
+          (len(sorted_left_idxs), len(sorted_right_idxs)))
     plt.plot(electron_positions[Voi_idx, 2 * right_idxs] * 1E6, electron_positions[Voi_idx, 2 * right_idxs + 1] * 1E6,
              'o', color='yellow')
     plt.plot(electron_positions[Voi_idx, 2 * left_idxs] * 1E6, electron_positions[Voi_idx, 2 * left_idxs + 1] * 1E6,
              'o', color='lightgreen')
 
+ax = plt.gca()
 for k in range(np.int(len(electron_positions[Voi_idx, :]) / 2)):
-    plt.text(electron_positions[Voi_idx, 2 * k] * 1E6, electron_positions[Voi_idx, 2 * k + 1] * 1E6, "%d" % k)
+    #plt.text(electron_positions[Voi_idx, 2 * k] * 1E6, electron_positions[Voi_idx, 2 * k + 1] * 1E6, "%d" % k)
+    mode_nr = ten_strongest_mode_numbers[Voi_idx, -4]
+    amp = Eigenvectors[k, mode_nr, Voi_idx]
+    x_p = electron_positions[Voi_idx, 2 * k] * 1E6
+    y_p = electron_positions[Voi_idx, 2 * k + 1] * 1E6
+
+    ax.arrow(x_p, y_p, amp * 5, 0, head_width=0.05, head_length=0.1, fc='k', ec='k')
+
 plt.xlabel("$x$ ($\mu$m)")
 plt.ylabel("$y$ ($\mu$m)")
 
 if save:
     common.save_figure(fig7, save_path=os.path.join(save_path, sub_dir))
+
+RS = anneal.ResonatorSolver(x_symmetric * 1E-6, -Uinterp_symmetric, efield_data=Uinterp[0])
+print("At the center, the E-field is %.2e V/m" % RS.Ex(0.0E-6, 0.0E-6))
+print("The curvature at the center of the channel is %.2e m^-2" % RS.ddVdx(0.0E-6, 0.0E-6))
 
 plt.show()
