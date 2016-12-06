@@ -18,7 +18,7 @@ from Common import common
 from TrapAnalysis import artificial_anneal as anneal
 
 save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Resonator"
-sub_dir = r"161123_144607_M018V1_resonator_sweep_150_electrons"
+sub_dir = r"161202_170822_M018V1_resonator_sweep_100_electrons"
 
 dbin = 0.006E-6
 bins = np.arange(-0.50E-6, 0.50E-6+dbin, dbin)
@@ -33,14 +33,21 @@ with h5py.File(os.path.join(os.path.join(save_path, sub_dir), "Results.h5"), "r"
             electron_ri = f[step + "/electron_final_coordinates"][()]
             xi, yi = anneal.r2xy(electron_ri)
 
-            electron_hist, bin_edges = np.histogram(xi, bins=bins)
+            #electron_hist, bin_edges = np.histogram(xi, bins=bins)
+
+            valid_solution = f[step + "/solution_converged"][()]
+            converged.append(valid_solution)
+
+            if valid_solution:
+                electron_hist, bin_edges = np.histogram(xi, bins=bins)
+            else:
+                electron_hist = np.zeros(len(electron_hist))
 
             if k == 0:
                 electron_histogram = electron_hist
             else:
                 electron_histogram = np.vstack((electron_histogram, electron_hist))
 
-            converged.append(f[step + "/solution_converged"][()])
             k += 1
 
     #print("Ja!")
