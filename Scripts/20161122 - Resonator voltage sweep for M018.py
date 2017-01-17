@@ -19,10 +19,10 @@ from TrapAnalysis import trap_analysis, import_data, artificial_anneal as anneal
 
 # Parameters:
 box_length = 40E-6
-N_electrons = 150
-N_rows = 2
+N_electrons = 100
+N_rows = 1
 row_spacing = 0.20E-6
-N_cols = 75
+N_cols = 100
 col_spacing = 0.20E-6
 resVs = np.arange(2.00, 0.06, -0.01)
 
