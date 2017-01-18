@@ -18,14 +18,15 @@ from Common import common
 from TrapAnalysis import import_data, artificial_anneal as anneal
 
 save = True
-save_path = r"/Users/gkoolstra/Desktop"
-#save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Resonator"
-sub_dir = r"Temporary electron optimization"
+#save_path = r"/Users/gkoolstra/Desktop"
+save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Resonator"
+sub_dir = r"170117_182619_M018V2_resonator_Vsweep_125_electrons"
+#sub_dir = r"Temporary electron optimization"
 
 h = 0.74
+screening_length = 2 * h * 1E-6
 box_y_length = 40E-6
 Vres = list()
-save = False
 
 plt.close('all')
 print("Loading optimization data...")
@@ -49,8 +50,8 @@ with h5py.File(os.path.join(os.path.join(save_path, sub_dir), "Results.h5"), "r"
     Vres = f["Vres"][()]
 
 # Load the data from the dsp file:
-#path = r'/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/Greater Trap Area/V1big'
-path = r"/Users/gkoolstra/Desktop/Temporary electron optimization"
+path = r'/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/Greater Trap Area/V1big'
+#path = r"/Users/gkoolstra/Desktop/Temporary electron optimization"
 potential_file = r"DCBiasPotential.dsp"
 efield_file = r"DifferentialModeEx.dsp"
 elements, nodes, elem_solution, bounding_box = import_data.load_dsp(os.path.join(path, potential_file))
@@ -181,7 +182,7 @@ def calculate_metrics(xi, yi, eps=1E-15):
 
     return R_ij, theta_ij
 
-def setup_eom(electron_positions, Vres, eps=1E-15):
+def setup_eom(electron_positions, Vres, eps=1E-15, screening_length=np.inf):
     """
     Sets up the inverse matrix that needs to be solved
     :param electron_positions: coordinates of the electron configuration = [x0, y0, x1, y1, ...]
@@ -214,7 +215,15 @@ def setup_eom(electron_positions, Vres, eps=1E-15):
 
     Rij, Tij = calculate_metrics(xi, yi, eps=eps)
     np.fill_diagonal(Rij, eps)
-    kij_plus_matrix = 1 / 4. * c['e'] ** 2 / (4 * np.pi * c['eps0']) * (1 + 3 * np.cos(2 * Tij)) / Rij ** 3
+    if screening_length == np.inf:
+        # Note that an infinite screening length corresponds to the Coulomb case. Usually it should be twice the
+        # helium depth
+        kij_plus_matrix = 1 / 4. * c['e'] ** 2 / (4 * np.pi * c['eps0']) * (1 + 3 * np.cos(2 * Tij)) / Rij ** 3
+    else:
+        Rij_scaled = Rij/screening_length
+        kij_plus_matrix = 1 / 4. * c['e'] ** 2 / (4 * np.pi * c['eps0']) * np.exp(-Rij_scaled) / Rij**3 * \
+                          (1 + Rij_scaled + Rij_scaled**2 + (3 + 3*Rij_scaled + Rij_scaled**2) * np.cos(2 * Tij))
+
     np.fill_diagonal(kij_plus_matrix, 0)
     kij_plus_sum = np.sum(kij_plus_matrix, axis=1)
 
@@ -247,7 +256,7 @@ Eigenvalues = np.zeros((len(Vres), N_electrons + 1))
 Eigenvectors = np.zeros((N_electrons + 1, N_electrons + 1, len(Vres)))
 
 for k, resV in tqdm(enumerate(Vres)):
-    LHS = setup_eom(electron_positions=electron_positions[k, :], Vres=resV)
+    LHS = setup_eom(electron_positions=electron_positions[k, :], Vres=resV, screening_length=screening_length)
     evals, evecs = solve_eom(LHS)
 
     Eigenvalues[k, :] = evals.flatten()
@@ -392,7 +401,7 @@ if two_rows:
 ax = plt.gca()
 for k in range(np.int(len(electron_positions[Voi_idx, :]) / 2)):
     #plt.text(electron_positions[Voi_idx, 2 * k] * 1E6, electron_positions[Voi_idx, 2 * k + 1] * 1E6, "%d" % k)
-    mode_nr = ten_strongest_mode_numbers[Voi_idx, -4]
+    mode_nr = ten_strongest_mode_numbers[Voi_idx, -2]
     amp = Eigenvectors[k, mode_nr, Voi_idx]
     x_p = electron_positions[Voi_idx, 2 * k] * 1E6
     y_p = electron_positions[Voi_idx, 2 * k + 1] * 1E6
@@ -401,6 +410,7 @@ for k in range(np.int(len(electron_positions[Voi_idx, :]) / 2)):
 
 plt.xlabel("$x$ ($\mu$m)")
 plt.ylabel("$y$ ($\mu$m)")
+plt.title("Electron motion of the selected \n mode at V = %.2f V"%Voi)
 
 if save:
     common.save_figure(fig7, save_path=os.path.join(save_path, sub_dir))
