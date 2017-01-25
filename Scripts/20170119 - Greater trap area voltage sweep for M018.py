@@ -46,6 +46,16 @@ x_eval, y_eval, output = anneal.load_data(master_path, xeval=xeval, yeval=yeval,
                                           inserted_res_length=inserted_res_length)
 # Note: x_eval and y_eval are 2D arrays that contain the x and y coordinates at which the potentials are evaluated
 
+# Take a slice through the middle, at y = 0 to check if the insertion went well and doesn't produce weird gradients.
+if 1:
+    U = output[0]['V'].T
+
+    plt.figure(figsize=(10.,3.))
+    common.configure_axes(13)
+    plt.plot(x_eval[np.int(len(y_eval)/2), :], -U[np.int(len(y_eval)/2), :], '-k')
+    plt.xlabel("$x$ ($\mu$m)")
+    plt.ylabel("Potential energy (eV)")
+
 conv_mon_save_path = os.path.join(save_path, sub_dir, "Figures")
 
 print("Switching to greater trap area...")
@@ -104,7 +114,7 @@ plt.plot(x_trap_init * 1E6, y_trap_init * 1E6, 'o', color='mediumpurple', alpha=
 plt.plot(trap_electrons_x * 1E6, trap_electrons_y * 1E6, 'o', color='violet', alpha=1.0)
 for k, name in enumerate(["$V_\mathrm{res}$", "$V_\mathrm{trap}$", "$V_\mathrm{rg}$", "$V_\mathrm{cg}$", "$V_\mathrm{tg}$"]):
     Vs = [Vres, Vtrap, Vrg, Vcg, Vtg]
-    plt.text(-2.0, 4.15 - 0.6 * k, name+" = %.2f V" % Vs[k], fontdict={'size': 10, 'color': 'black', 'ha' : 'right'})
+    plt.text(8, 4.15 - 0.6 * k, name+" = %.2f V" % Vs[k], fontdict={'size': 10, 'color': 'black', 'ha' : 'right'})
 
 if best_trap['status'] > 0:
     plt.text(2, -2, "Minimization did not converge", fontdict={"size" : 10})
