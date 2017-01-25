@@ -19,22 +19,22 @@ from TrapAnalysis import trap_analysis, import_data, artificial_anneal as anneal
 
 # Parameters:
 box_length = 40E-6
-N_electrons = 100
+N_electrons = 170
 N_rows = 1
 row_spacing = 0.20E-6
-N_cols = 100
+N_cols = 170
 col_spacing = 0.20E-6
-resVs = np.arange(2.00, 0.06, -0.01)
+resVs = np.arange(2.00, 0.04, -0.01)
 
 h = 0.74
 fitdomain = (-0.75, 0.75)
 
 epsilon = 1e-10
 use_gradient = True
-gradient_tolerance = 1E1
+gradient_tolerance = 5E0
 
-annealing_steps = [1.00]*10
-simulation_name = "M018V1_resonator_sweep_%d_electrons" % N_electrons
+annealing_steps = [1.0] * 10
+simulation_name = "M018V2_resonator_Vsweep_%d_electrons" % N_electrons
 save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Resonator"
 sub_dir = time.strftime("%y%m%d_%H%M%S_{}".format(simulation_name))
 save = True
@@ -127,7 +127,7 @@ f.create_dataset("gradient_tolerance", data=gradient_tolerance)
 conv_mon_save_path = os.path.join(save_path, sub_dir, "Figures")
 
 for k, Vres in tqdm(enumerate(resVs)):
-    EP = anneal.ResonatorSolver(x_symmetric*1E-6, -Vres*Uinterp_symmetric, box_length=box_length, smoothing=0.005)
+    EP = anneal.ResonatorSolver(x_symmetric*1E-6, -Vres*Uinterp_symmetric, box_length=box_length, smoothing=0.0)
 
     if use_gradient:
         jac = EP.grad_total
@@ -176,7 +176,7 @@ for k, Vres in tqdm(enumerate(resVs)):
     f.create_dataset("step_%04d/electrons_in_trap" % k, data=PP.get_trapped_electrons(res['x']))
 
     # Use the solution from the current time step as the initial condition for the next timestep!
-    #electron_initial_positions = res['x']
+    electron_initial_positions = res['x']
 
 f.close()
 
