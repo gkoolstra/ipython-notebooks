@@ -18,7 +18,7 @@ from Common import common
 from TrapAnalysis import artificial_anneal as anneal
 
 save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Resonator"
-sub_dir = r"161202_170822_M018V1_resonator_sweep_100_electrons"
+sub_dir = r"170118_145233_M018V2_resonator_Vsweep_200_electrons"
 
 dbin = 0.006E-6
 bins = np.arange(-0.50E-6, 0.50E-6+dbin, dbin)
