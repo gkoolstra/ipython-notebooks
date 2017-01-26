@@ -20,7 +20,7 @@ from TrapAnalysis import import_data, artificial_anneal as anneal
 save = True
 #save_path = r"/Users/gkoolstra/Desktop"
 save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Resonator"
-sub_dir = r"170117_182619_M018V2_resonator_Vsweep_125_electrons"
+sub_dir = r"170118_145233_M018V2_resonator_Vsweep_200_electrons"
 #sub_dir = r"Temporary electron optimization"
 
 h = 0.74
