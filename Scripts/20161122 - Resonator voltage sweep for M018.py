@@ -19,10 +19,10 @@ from TrapAnalysis import trap_analysis, import_data, artificial_anneal as anneal
 
 # Parameters:
 box_length = 40E-6
-N_electrons = 80
+N_electrons = 300
 N_rows = 1
 row_spacing = 0.20E-6
-N_cols = 80
+N_cols = 300
 col_spacing = 0.20E-6
 resVs = np.arange(2.00, 0.04, -0.01)
 
@@ -155,14 +155,15 @@ for k, Vres in tqdm(enumerate(resVs)):
     res['x'] = coordinate_transformation(res['x'])
 
     if len(annealing_steps) > 0:
-        res = EP.perturb_and_solve(EP.Vtotal, len(annealing_steps), annealing_steps[0], res, **minimizer_options)
+        res = EP.parallel_perturb_and_solve(EP.Vtotal, len(annealing_steps), annealing_steps[0], res, minimizer_options)
         res['x'] = coordinate_transformation(res['x'])
 
     resonator_ns_area = anneal.get_electron_density_by_area(anneal.xy2r(res['x'][::2], res['x'][1::2]))
     resonator_ns_pos = anneal.get_electron_density_by_position(anneal.xy2r(res['x'][::2], res['x'][1::2]))
-    print(
-        "Electron density on resonator = %.2e (by area) or %.2e (by position)" % (resonator_ns_area, resonator_ns_pos))
+    #print(
+    #    "Electron density on resonator = %.2e (by area) or %.2e (by position)" % (resonator_ns_area, resonator_ns_pos))
 
+    t0 = time.time()
     PP = anneal.PostProcess(save_path=conv_mon_save_path)
     PP.save_snapshot(res['x'], xext=x_box, yext=y_box, Uext=EP.V,
                      figsize=(4,6), common=common, title="Vres = %.2f V"%Vres,
@@ -174,6 +175,7 @@ for k, Vres in tqdm(enumerate(resVs)):
     f.create_dataset("step_%04d/energy" % k, data=res['fun'])
     f.create_dataset("step_%04d/jacobian" % k, data=res['jac'])
     f.create_dataset("step_%04d/electrons_in_trap" % k, data=PP.get_trapped_electrons(res['x']))
+    print("Saved data for V = %.2f V in %.2f seconds" % (Vres, time.time() - t0))
 
     # Use the solution from the current time step as the initial condition for the next timestep!
     electron_initial_positions = res['x']
