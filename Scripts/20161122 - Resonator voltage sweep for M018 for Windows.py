@@ -19,14 +19,17 @@ from TrapAnalysis import trap_analysis, import_data, artificial_anneal as anneal
 
 # Parameters:
 box_length = 40E-6
-N_electrons = 150
+res_pinw=0.9E-6
+edge_gapw=0.5E-6
+center_gapw=0.7E-6
+#N_electrons = 150
 N_rows = 1
 row_spacing = 0.20E-6
-N_cols = 150
+#N_cols = 150
 col_spacing = 0.10E-6
 resVs = np.arange(2.00, 0.04, -0.01)
 
-h = 0.74
+h = 0.80
 fitdomain = (-0.75, 0.75)
 
 epsilon = 1e-10
@@ -34,7 +37,7 @@ use_gradient = True
 gradient_tolerance = 5E0
 
 annealing_steps = [1.0] * 10
-simulation_name = "M018V2_resonator_Vsweep_%d_electrons" % N_electrons
+simulation_name = "M018V3_resonator_Vsweep_%d_electrons" % N_electrons
 save_path = r"S:\Gerwin\Electron on helium\Electron optimization\Realistic potential\Resonator"
 #save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Resonator"
 sub_dir = time.strftime("%y%m%d_%H%M%S_{}".format(simulation_name))
@@ -43,7 +46,7 @@ create_movie = True
 
 # Load the data from the dsp file:
 #path = r'/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/Greater Trap Area/V1big/DCBiasPotential.dsp'
-path = r'S:\Gerwin\Electron on helium\Maxwell\M018 Yggdrasil\Greater Trap Area\V1big\DCBiasPotential.dsp'
+path = r'S:\Gerwin\Electron on helium\Maxwell\M018 Yggdrasil\All simulation data M018V3\DCBiasPotential.dsp'
 elements, nodes, elem_solution, bounding_box = import_data.load_dsp(path)
 
 xdata, ydata, Udata = interpolate_slow.prepare_for_interpolation(elements, nodes, elem_solution)
@@ -165,7 +168,8 @@ for k, Vres in tqdm(enumerate(resVs)):
     print(
         "Electron density on resonator = %.2e (by area) or %.2e (by position)" % (resonator_ns_area, resonator_ns_pos))
 
-    PP = anneal.PostProcess(save_path=conv_mon_save_path)
+    PP = anneal.PostProcess(save_path=conv_mon_save_path, res_pinw=res_pinw*1E6, edge_gapw=edge_gapw*1E6,
+                            center_gapw=center_gapw*1E6, box_length=box_length*1E6)
     PP.save_snapshot(res['x'], xext=x_box, yext=y_box, Uext=EP.V,
                      figsize=(4,6), common=common, title="Vres = %.2f V"%Vres,
                      clim=(-0.75*max(resVs), 0))

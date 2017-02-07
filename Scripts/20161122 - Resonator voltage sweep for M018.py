@@ -19,14 +19,14 @@ from TrapAnalysis import trap_analysis, import_data, artificial_anneal as anneal
 
 # Parameters:
 box_length = 40E-6
-N_electrons = 300
+#N_electrons = 300
 N_rows = 1
 row_spacing = 0.20E-6
-N_cols = 300
+#N_cols = 300
 col_spacing = 0.20E-6
 resVs = np.arange(2.00, 0.04, -0.01)
 
-h = 0.74
+h = 0.75
 fitdomain = (-0.75, 0.75)
 
 epsilon = 1e-10
@@ -34,14 +34,14 @@ use_gradient = True
 gradient_tolerance = 5E0
 
 annealing_steps = [1.0] * 10
-simulation_name = "M018V2_resonator_Vsweep_%d_electrons" % N_electrons
+simulation_name = "M018V3_resonator_Vsweep_%d_electrons" % N_electrons
 save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Resonator"
 sub_dir = time.strftime("%y%m%d_%H%M%S_{}".format(simulation_name))
 save = True
 create_movie = True
 
 # Load the data from the dsp file:
-path = r'/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/Greater Trap Area/V1big/DCBiasPotential.dsp'
+path = r'/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/All simulation data M018V3/DCBiasPotential.dsp'
 elements, nodes, elem_solution, bounding_box = import_data.load_dsp(path)
 
 xdata, ydata, Udata = interpolate_slow.prepare_for_interpolation(elements, nodes, elem_solution)
