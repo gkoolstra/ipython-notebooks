@@ -1,5 +1,5 @@
 from matplotlib import pyplot as plt
-import os, time, h5py
+import os, time, h5py, platform
 import numpy as np
 from tqdm import tqdm
 from scipy.optimize import minimize
@@ -7,98 +7,35 @@ from termcolor import cprint
 from Common import common
 from TrapAnalysis import trap_analysis, artificial_anneal as anneal
 
+simulation_name = "M018V5_Greater_Trap_Area"
+include_screening = True
+helium_thickness = 0.75E-6
+screening_length = 2 * helium_thickness
 inspect_potentials = False
 use_gradient = True
-gradient_tolerance = 1E1
+gradient_tolerance = 1E0
 epsilon = 1E-10
 trap_annealing_steps = [1.0] * 10
 
 # Set any of these to None if you can only apply GND
 # Only the first electrode in this list that is set to an array instead of float will be swept.
-Vres = np.arange(2.00, 0.04, -0.01)
-Vtrap = 0.00
+Vres = 0.50
+Vtrap = np.arange(0.00, 0.76, +0.01)
 Vrg = 0.00
-Vtg = -0.4
+Vtg = -1.00
 Vcg = None
 
-N_electrons = 50
-N_rows = 50
+N_electrons = 80
+N_rows = N_electrons
 row_spacing = 0.20E-6
 N_cols = 1
 col_spacing = 0.20E-6
 box_length = 20E-6
 
-inserted_res_length = 15 # units are in um
+inserted_res_length = 40 # units are in um
 electrode_names = ['resonator', 'trap', 'res_guard', 'trap_guard']
 if Vcg is not None:
     electrode_names.insert(3, 'ctr_guard')
-
-#electron_initial_positions = anneal.setup_initial_condition(N_electrons, (3.5E-6, 10.5E-6), (-1E-6, 1E-6), 7E-6, 0E-6, dx=None, dy=None)
-electron_initial_positions = anneal.get_rectangular_initial_condition(N_electrons, N_rows=N_rows, N_cols=N_cols,
-                                                                      x0=inserted_res_length*1E-6, y0=0.0E-6, dx=0.20E-6)
-x_trap_init, y_trap_init = anneal.r2xy(electron_initial_positions)
-
-simulation_name = "M018V4_Greater_Trap_Area"
-#save_path = r"/Users/gkoolstra/Desktop/Temporary electron optimization/Data"
-save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Greater Trap Area"
-sub_dir = time.strftime("%y%m%d_%H%M%S_{}".format(simulation_name))
-save = True
-
-# Evaluate all files in the following range.
-xeval = np.linspace(-4.0, box_length*1E6, 500)
-yeval = anneal.construct_symmetric_y(-4.5, 151)
-
-master_path = r"/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/M018V4"
-#master_path = r"/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/Greater Trap Area/V1"
-x_eval, y_eval, output = anneal.load_data(master_path, xeval=xeval, yeval=yeval, mirror_y=True,
-                                          extend_resonator=False, insert_resonator=True, do_plot=inspect_potentials,
-                                          inserted_res_length=inserted_res_length)
-
-if inspect_potentials:
-    plt.show()
-
-# Note: x_eval and y_eval are 2D arrays that contain the x and y coordinates at which the potentials are evaluated
-
-conv_mon_save_path = os.path.join(save_path, sub_dir, "Figures")
-
-if save:
-    # Create the directories
-    os.mkdir(os.path.join(save_path, sub_dir))
-    time.sleep(1)
-    os.mkdir(os.path.join(save_path, sub_dir, "Figures"))
-
-    # Save the data to a single file
-    f = h5py.File(os.path.join(os.path.join(save_path, sub_dir), "Results.h5"), "w")
-    f.create_dataset("use_gradient", data=use_gradient)
-    f.create_dataset("gradient_tolerance", data=gradient_tolerance)
-    for el_number, el_name in enumerate(electrode_names):
-        f.create_dataset(el_name, data=-output[el_number]['V'].T)
-    f.create_dataset("xpoints", data=x_eval)
-    f.create_dataset("ypoints", data=y_eval)
-    f.create_dataset("Vres", data=Vres)
-    f.create_dataset("Vtrap", data=Vtrap)
-    f.create_dataset("Vrg", data=Vrg)
-    if Vcg is not None:
-        f.create_dataset("Vcg", data=Vcg)
-    f.create_dataset("Vtg", data=Vtg)
-
-# Take a slice through the middle, at y = 0 to check if the insertion went well and doesn't produce weird gradients.
-if 1:
-    U = output[0]['V'].T
-    fig = plt.figure(figsize=(10.,3.))
-    common.configure_axes(13)
-    plt.plot(x_eval[np.int(len(y_eval)/2), :] * 1E6, -U[np.int(len(y_eval)/2), :], '-k')
-    plt.xlabel("$x$ ($\mu$m)")
-    plt.ylabel("Potential energy (eV)")
-
-    if save:
-        common.save_figure(fig, save_path=os.path.join(save_path, sub_dir))
-
-# This is where the actual solving starts...
-t = trap_analysis.TrapSolver()
-c = trap_analysis.get_constants()
-
-x_eval, y_eval, cropped_potentials = t.crop_potentials(output, ydomain=None, xdomain=None)
 
 # Determine what electrode will be swept:
 sweep_points = np.inf
@@ -115,7 +52,83 @@ if not(isinstance(sweep_points, np.ndarray)):
 cprint("Sweeping %s from %.2f V to %.2f V" % (electrode_names[SweepIdx], sweep_points[0], sweep_points[-1]),
        "green")
 
-#cprint("Sweeping %s from %.2f V to %.2f V" % (electrode_names[SweepIdx], sweep_points[0], sweep_points[-1]), "green")
+simulation_name += "_%s_sweep" % (electrode_names[SweepIdx])
+
+electron_initial_positions = anneal.get_rectangular_initial_condition(N_electrons, N_rows=N_rows, N_cols=N_cols,
+                                                                      x0=inserted_res_length*1E-6, y0=0.0E-6, dx=0.20E-6)
+x_trap_init, y_trap_init = anneal.r2xy(electron_initial_positions)
+
+if platform.system() == 'Windows':
+    save_path = r"S:\Gerwin\Electron on helium\Electron optimization\Realistic potential\Greater Trap Area"
+else:
+    save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Greater Trap Area"
+sub_dir = time.strftime("%y%m%d_%H%M%S_{}".format(simulation_name))
+save = True
+
+# Evaluate all files in the following range.
+xeval = np.linspace(-4.0, box_length*1E6, 751)
+yeval = anneal.construct_symmetric_y(-4.5, 151)
+
+dx = np.diff(xeval)[0]*1E-6
+dy = np.diff(yeval)[0]*1E-6
+
+if platform.system() == 'Windows':
+    master_path = r"S:\Gerwin\Electron on helium\Maxwell\M018 Yggdrasil\M018V4"
+else:
+    master_path = r"/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/M018V4"
+
+x_eval, y_eval, output = anneal.load_data(master_path, xeval=xeval, yeval=yeval, mirror_y=True,
+                                          extend_resonator=False, insert_resonator=True, do_plot=inspect_potentials,
+                                          inserted_res_length=inserted_res_length, smoothen_xy=(0.30E-6, dy))
+
+if inspect_potentials:
+    plt.show()
+
+# Note: x_eval and y_eval are 2D arrays that contain the x and y coordinates at which the potentials are evaluated
+conv_mon_save_path = os.path.join(save_path, sub_dir, "Figures")
+
+if save:
+    # Create the directories
+    os.mkdir(os.path.join(save_path, sub_dir))
+    time.sleep(1)
+    os.mkdir(os.path.join(save_path, sub_dir, "Figures"))
+    time.sleep(1)
+
+    # Save the data to a single file
+    f = h5py.File(os.path.join(os.path.join(save_path, sub_dir), "Results.h5"), "w")
+    f.create_dataset("use_gradient", data=use_gradient)
+    f.create_dataset("gradient_tolerance", data=gradient_tolerance)
+    for el_number, el_name in enumerate(electrode_names):
+        f.create_dataset(el_name, data=-output[el_number]['V'].T)
+    f.create_dataset("xpoints", data=x_eval)
+    f.create_dataset("ypoints", data=y_eval)
+    f.create_dataset("Vres", data=Vres)
+    f.create_dataset("Vtrap", data=Vtrap)
+    f.create_dataset("Vrg", data=Vrg)
+    if Vcg is not None:
+        f.create_dataset("Vcg", data=Vcg)
+    f.create_dataset("Vtg", data=Vtg)
+    time.sleep(1)
+
+# Take a slice through the middle, at y = 0 to check if the insertion went well and doesn't produce weird gradients.
+if 1:
+    U = output[0]['V'].T
+    fig = plt.figure(figsize=(10.,3.))
+    common.configure_axes(13)
+    plt.plot(x_eval[np.int(len(y_eval)/2), :] * 1E6, -U[np.int(len(y_eval)/2), :], '-k')
+    plt.xlabel("$x$ ($\mu$m)")
+    plt.ylabel("Potential energy (eV)")
+
+    if save:
+        common.save_figure(fig, save_path=os.path.join(save_path, sub_dir))
+
+    plt.show()
+
+# This is where the actual solving starts...
+t = trap_analysis.TrapSolver()
+c = trap_analysis.get_constants()
+
+x_eval, y_eval, cropped_potentials = t.crop_potentials(output, ydomain=None, xdomain=None)
 
 for k, s in tqdm(enumerate(sweep_points)):
 
@@ -129,8 +142,20 @@ for k, s in tqdm(enumerate(sweep_points)):
     # Units of x_eval and y_eval are um
 
     CMS = anneal.TrapAreaSolver(x_eval * 1E-6, y_eval * 1E-6, -combined_potential.T,
-                                spline_order_x=3, spline_order_y=3, smoothing=0.01,
-                                include_screening=True, screening_length=2*0.74E-6)
+                                spline_order_x=3, spline_order_y=3, smoothing=0.00,
+                                include_screening=include_screening, screening_length=screening_length)
+
+    if 0:
+        fig = plt.figure(figsize=(10.,3.))
+        common.configure_axes(13)
+        plt.plot(x_eval, -U[np.int(len(y_eval)/2), :], '-k')
+        plt.plot(x_eval, CMS.V(x_eval*1E-6, 0), '-r')
+        plt.xlabel("$x$ ($\mu$m)")
+        plt.ylabel("Potential energy (eV)")
+        plt.show()
+
+        if save:
+            common.save_figure(fig, save_path=os.path.join(save_path, sub_dir, "Figures"))
 
     X_eval, Y_eval = np.meshgrid(x_eval * 1E-6, y_eval * 1E-6)
 
@@ -143,7 +168,7 @@ for k, s in tqdm(enumerate(sweep_points)):
 
     trap_minimizer_options = {'jac': CMS.grad_total,
                               'options': {'disp': False, 'gtol': gradient_tolerance, 'eps': epsilon},
-                              'callback': ConvMon.monitor_convergence}
+                              'callback': None}
 
     res = minimize(CMS.Vtotal, electron_initial_positions, method='CG', **trap_minimizer_options)
 
@@ -156,13 +181,15 @@ for k, s in tqdm(enumerate(sweep_points)):
         # This maps the electron positions within the simulation domain
         cprint("Perturbing solution %d times at %.2f K..." \
                % (len(trap_annealing_steps), trap_annealing_steps[0]), "white")
-        best_res = CMS.parallel_perturb_and_solve(CMS.Vtotal, len(trap_annealing_steps),
-                                                  trap_annealing_steps[0], res, trap_minimizer_options)
+        best_res = CMS.perturb_and_solve(CMS.Vtotal, len(trap_annealing_steps), trap_annealing_steps[0],
+                                         res, **trap_minimizer_options)
+        # best_res = CMS.parallel_perturb_and_solve(CMS.Vtotal, len(trap_annealing_steps),
+        #                                           trap_annealing_steps[0], res, trap_minimizer_options)
 
     #t0 = time.time()
     PP = anneal.PostProcess(save_path=conv_mon_save_path)
     PP.save_snapshot(best_res['x'], xext=x_eval*1E-6, yext=y_eval*1E-6, Uext=CMS.V,
-                     figsize=(12., 3.), common=common, title="Vres = %.2f V" % coefficients[0],
+                     figsize=(12., 3.), common=common, title="%s = %.2f V" % (electrode_names[SweepIdx], coefficients[SweepIdx]),
                      clim=(-0.75 * max(sweep_points), 0), draw_resonator_pins=False)
 
     f.create_dataset("step_%04d/electron_final_coordinates" % k, data=best_res['x'])
