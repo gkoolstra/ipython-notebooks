@@ -1,0 +1,1 @@
+nohup sh ./jupyter_5080.sh &
