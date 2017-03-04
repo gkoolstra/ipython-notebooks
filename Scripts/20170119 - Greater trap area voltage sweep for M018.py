@@ -15,17 +15,18 @@ inspect_potentials = False
 use_gradient = True
 gradient_tolerance = 1E1
 epsilon = 1E-10
-trap_annealing_steps = [0.5] * 10
+trap_annealing_steps = [0.25] * 10
 remove_unbound_electrons = True
 show_final_result = False
+create_movie = True
 remove_bounds = (-np.inf, -3E-6)
 
 # Set any of these to None if you can only apply GND
 # Only the first electrode in this list that is set to an array instead of float will be swept.
-#Vres = 1.00 #np.arange(2.00, 0.04, -0.01)
-#Vtrap = np.arange(1.00, 1.50, +0.01)
-Vrg = 0.10 * Vres
-Vtg = -2 * Vres
+Vres = 1.00 #np.arange(2.00, 0.04, -0.01)
+Vtrap = 1.00 #np.arange(1.00, 1.50, +0.01)
+Vrg = np.arange(0.00, -1.00, -0.01)#0.10 * Vres
+Vtg = -1.00
 Vcg = None
 
 N_electrons = 160
@@ -82,7 +83,7 @@ else:
 
 x_eval, y_eval, output = anneal.load_data(master_path, xeval=xeval, yeval=yeval, mirror_y=True,
                                           extend_resonator=False, insert_resonator=True, do_plot=inspect_potentials,
-                                          inserted_res_length=inserted_res_length, smoothen_xy=(0.30E-6, dy))
+                                          inserted_res_length=inserted_res_length, smoothen_xy=(0.15E-6, dy))
 
 if inspect_potentials:
     plt.show()
@@ -151,18 +152,6 @@ for k, s in tqdm(enumerate(sweep_points)):
                                 spline_order_x=3, spline_order_y=3, smoothing=0.00,
                                 include_screening=include_screening, screening_length=screening_length)
 
-    if 0:
-        fig = plt.figure(figsize=(10.,3.))
-        common.configure_axes(13)
-        plt.plot(x_eval, -U[np.int(len(y_eval)/2), :], '-k')
-        plt.plot(x_eval, CMS.V(x_eval*1E-6, 0), '-r')
-        plt.xlabel("$x$ ($\mu$m)")
-        plt.ylabel("Potential energy (eV)")
-        plt.show()
-
-        if save:
-            common.save_figure(fig, save_path=os.path.join(save_path, sub_dir, "Figures"))
-
     X_eval, Y_eval = np.meshgrid(x_eval * 1E-6, y_eval * 1E-6)
 
     # Solve for the electron positions in the trap area!
@@ -204,19 +193,44 @@ for k, s in tqdm(enumerate(sweep_points)):
     else:
         # cprint("SUCCESS: Initial minimization for Trap converged!", "green")
         # This maps the electron positions within the simulation domain
-        # cprint("Perturbing solution %d times at %.2f K..." \
-        #       % (len(trap_annealing_steps), trap_annealing_steps[0]), "white")
-        best_res = CMS.perturb_and_solve(CMS.Vtotal, len(trap_annealing_steps), trap_annealing_steps[0],
-                                         res, maximum_dx=0.35E-6, maximum_dy=0.5E-6, **trap_minimizer_options)
-        # best_res = CMS.parallel_perturb_and_solve(CMS.Vtotal, len(trap_annealing_steps),
-        #                                           trap_annealing_steps[0], res, trap_minimizer_options)
+        cprint("Perturbing solution %d times at %.2f K. (dx,dy) ~ (%.3f, %.3f) um..." \
+              % (len(trap_annealing_steps), trap_annealing_steps[0],
+                 np.mean(CMS.thermal_kick_x(res['x'][::2], res['x'][1::2], trap_annealing_steps[0], maximum_dx=0.35E-6))*1E6,
+                 np.mean(CMS.thermal_kick_y(res['x'][::2], res['x'][1::2], trap_annealing_steps[0], maximum_dy=0.5E-6))*1E6),
+               "white")
+        #best_res = CMS.perturb_and_solve(CMS.Vtotal, len(trap_annealing_steps), trap_annealing_steps[0],
+        #                                 res, maximum_dx=0.35E-6, maximum_dy=0.5E-6, **trap_minimizer_options)
+        best_res = CMS.parallel_perturb_and_solve(CMS.Vtotal, len(trap_annealing_steps),
+                                                  trap_annealing_steps[0], res, trap_minimizer_options,
+                                                  maximum_dx=0.35E-6, maximum_dy=0.5E-6)
+
+    if 1:
+        electron_pos = best_res['x'][::2] * 1E6
+
+        fig = plt.figure(figsize=(7., 3.))
+        common.configure_axes(13)
+        plt.plot(x_eval[x_eval < 6], CMS.V(x_eval[x_eval < 6]*1E-6, 0), '-', color='orange')
+        plt.plot(electron_pos[electron_pos < 6], CMS.V(electron_pos[electron_pos < 6] * 1E-6, 0) + 0.005, 'o', color='cornflowerblue')
+        plt.xlabel("$x$ ($\mu$m)")
+        plt.ylabel("Potential energy (eV)")
+        plt.title("%s = %.2f V" % (electrode_names[SweepIdx], coefficients[SweepIdx]))
+        plt.ylim(-0.7, -0.6)
+
+        if save:
+            common.save_figure(fig, save_path=os.path.join(save_path, sub_dir))
+
+        plt.close(fig)
 
     PP = anneal.PostProcess(save_path=conv_mon_save_path)
     x_plot = np.arange(-2E-6, +6E-6, dx) #x_eval*1E-6
     y_plot = y_eval*1E-6
     PP.save_snapshot(best_res['x'], xext=x_plot, yext=y_plot, Uext=CMS.V,
                      figsize=(6.5, 3.), common=common, title="%s = %.2f V" % (electrode_names[SweepIdx], coefficients[SweepIdx]),
-                     clim=(-0.75 * max(sweep_points), 0), draw_resonator_pins=False)
+                     clim=(-0.75 * Vres, 0),
+                     #clim=(-0.75 * max(sweep_points), 0),
+                     draw_resonator_pins=False,
+                     draw_from_dxf={'filename':os.path.join(master_path, 'electrode_mirror.dxf'),
+                                    'plot_options':{'color':'black', 'alpha':0.6, 'lw':0.5}})
 
     f.create_dataset("step_%04d/electron_final_coordinates" % k, data=best_res['x'])
     f.create_dataset("step_%04d/electron_initial_coordinates" % k, data=electron_initial_positions)
@@ -229,6 +243,19 @@ for k, s in tqdm(enumerate(sweep_points)):
     electron_initial_positions = best_res['x']
 
 trap_electrons_x, trap_electrons_y = anneal.r2xy(electron_initial_positions)
+
+if create_movie:
+    try:
+        # Create a movie
+        ConvMon.create_movie(fps=10,
+                             filenames_in=time.strftime("%Y%m%d")+"_figure_%05d.png",
+                             filename_out="greater_trap_area.mp4")
+
+        # Move the file from the Figures folder to the sub folder
+        os.rename(os.path.join(save_path, sub_dir, "Figures", "greater_trap_area.mp4"),
+                  os.path.join(save_path, sub_dir, "greater_trap_area.mp4"))
+    except:
+        print("Failed making a movie!")
 
 if show_final_result:
     # Plot the resonator and trap electron configuration
