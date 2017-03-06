@@ -16,16 +16,18 @@ use_gradient = True
 gradient_tolerance = 1E1
 epsilon = 1E-10
 trap_annealing_steps = [0.25] * 10
+max_x_displacement = 0.4E-6
+max_y_displacement = 0.4E-6
 remove_unbound_electrons = True
+remove_bounds = (-np.inf, -3E-6)
 show_final_result = False
 create_movie = True
-remove_bounds = (-np.inf, -3E-6)
 
 # Set any of these to None if you can only apply GND
 # Only the first electrode in this list that is set to an array instead of float will be swept.
 Vres = 1.00 #np.arange(2.00, 0.04, -0.01)
-Vtrap = 1.00 #np.arange(1.00, 1.50, +0.01)
-Vrg = np.arange(0.00, -1.00, -0.01)#0.10 * Vres
+Vtrap = 0.95 #np.arange(1.00, 1.50, +0.01)
+Vrg = np.arange(0.00, -0.96, -0.01) #0.10 * Vres
 Vtg = -1.00
 Vcg = None
 
@@ -63,9 +65,10 @@ electron_initial_positions = anneal.get_rectangular_initial_condition(N_electron
 x_trap_init, y_trap_init = anneal.r2xy(electron_initial_positions)
 
 if platform.system() == 'Windows':
-    save_path = r"S:\Gerwin\Electron on helium\Electron optimization\Realistic potential\2D plot"
+    save_path = r"S:\Gerwin\Electron on helium\Electron optimization\Realistic potential\Single electron loading"
 else:
-    save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/2D plot"
+    #save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Single electron loading"
+    save_path = r"/Users/gkoolstra/Desktop/Single electron loading"
 sub_dir = time.strftime("%y%m%d_%H%M%S_{}".format(simulation_name))
 save = True
 
@@ -83,7 +86,7 @@ else:
 
 x_eval, y_eval, output = anneal.load_data(master_path, xeval=xeval, yeval=yeval, mirror_y=True,
                                           extend_resonator=False, insert_resonator=True, do_plot=inspect_potentials,
-                                          inserted_res_length=inserted_res_length, smoothen_xy=(0.15E-6, dy))
+                                          inserted_res_length=inserted_res_length, smoothen_xy=(0.25E-6, dy))
 
 if inspect_potentials:
     plt.show()
@@ -96,6 +99,8 @@ if save:
     os.mkdir(os.path.join(save_path, sub_dir))
     time.sleep(1)
     os.mkdir(os.path.join(save_path, sub_dir, "Figures"))
+    time.sleep(1)
+    os.mkdir(os.path.join(save_path, sub_dir, "2D slice"))
     time.sleep(1)
 
     # Save the data to a single file
@@ -195,14 +200,14 @@ for k, s in tqdm(enumerate(sweep_points)):
         # This maps the electron positions within the simulation domain
         cprint("Perturbing solution %d times at %.2f K. (dx,dy) ~ (%.3f, %.3f) um..." \
               % (len(trap_annealing_steps), trap_annealing_steps[0],
-                 np.mean(CMS.thermal_kick_x(res['x'][::2], res['x'][1::2], trap_annealing_steps[0], maximum_dx=0.35E-6))*1E6,
-                 np.mean(CMS.thermal_kick_y(res['x'][::2], res['x'][1::2], trap_annealing_steps[0], maximum_dy=0.5E-6))*1E6),
+                 np.mean(CMS.thermal_kick_x(res['x'][::2], res['x'][1::2], trap_annealing_steps[0], maximum_dx=max_x_displacement))*1E6,
+                 np.mean(CMS.thermal_kick_y(res['x'][::2], res['x'][1::2], trap_annealing_steps[0], maximum_dy=max_y_displacement))*1E6),
                "white")
         #best_res = CMS.perturb_and_solve(CMS.Vtotal, len(trap_annealing_steps), trap_annealing_steps[0],
         #                                 res, maximum_dx=0.35E-6, maximum_dy=0.5E-6, **trap_minimizer_options)
         best_res = CMS.parallel_perturb_and_solve(CMS.Vtotal, len(trap_annealing_steps),
                                                   trap_annealing_steps[0], res, trap_minimizer_options,
-                                                  maximum_dx=0.35E-6, maximum_dy=0.5E-6)
+                                                  maximum_dx=max_x_displacement, maximum_dy=max_y_displacement)
 
     if 1:
         electron_pos = best_res['x'][::2] * 1E6
@@ -217,7 +222,7 @@ for k, s in tqdm(enumerate(sweep_points)):
         plt.ylim(-0.7, -0.6)
 
         if save:
-            common.save_figure(fig, save_path=os.path.join(save_path, sub_dir))
+            common.save_figure(fig, save_path=os.path.join(save_path, sub_dir, "2D slice"))
 
         plt.close(fig)
 
@@ -229,7 +234,7 @@ for k, s in tqdm(enumerate(sweep_points)):
                      clim=(-0.75 * Vres, 0),
                      #clim=(-0.75 * max(sweep_points), 0),
                      draw_resonator_pins=False,
-                     draw_from_dxf={'filename':os.path.join(master_path, 'electrode_mirror.dxf'),
+                     draw_from_dxf={'filename':os.path.join(master_path, 'all_electrodes.dxf'),
                                     'plot_options':{'color':'black', 'alpha':0.6, 'lw':0.5}})
 
     f.create_dataset("step_%04d/electron_final_coordinates" % k, data=best_res['x'])
@@ -249,11 +254,11 @@ if create_movie:
         # Create a movie
         ConvMon.create_movie(fps=10,
                              filenames_in=time.strftime("%Y%m%d")+"_figure_%05d.png",
-                             filename_out="greater_trap_area.mp4")
+                             filename_out=simulation_name + ".mp4")
 
         # Move the file from the Figures folder to the sub folder
-        os.rename(os.path.join(save_path, sub_dir, "Figures", "greater_trap_area.mp4"),
-                  os.path.join(save_path, sub_dir, "greater_trap_area.mp4"))
+        os.rename(os.path.join(save_path, sub_dir, "Figures", simulation_name + ".mp4"),
+                  os.path.join(save_path, sub_dir, simulation_name + ".mp4"))
     except:
         print("Failed making a movie!")
 
