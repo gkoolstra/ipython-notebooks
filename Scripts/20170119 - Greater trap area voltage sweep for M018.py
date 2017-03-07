@@ -2,7 +2,7 @@ import os, time, h5py, platform
 if platform.system() == 'Linux':
     import matplotlib
     matplotlib.use('Agg')
-    from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt
 import numpy as np
 from tqdm import tqdm
 from scipy.optimize import minimize
@@ -31,6 +31,8 @@ create_movie = True
 Vres = 1.00 #np.arange(2.00, 0.04, -0.01)
 Vtrap = 0.93 #np.arange(1.00, 1.50, +0.01)
 Vrg = np.arange(0.33, -1.01, -0.01) #0.10 * Vres
+Vtrap = 1.00 #np.arange(1.00, 1.50, +0.01)
+Vrg = np.arange(0.30, -1.01, -0.01) #0.10 * Vres
 Vtg = -1.00
 Vcg = None
 
@@ -73,6 +75,7 @@ elif platform.system() == 'Linux':
     save_path = r"/mnt/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Single electron loading"
 else:
     save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Single electron loading"
+
 sub_dir = time.strftime("%y%m%d_%H%M%S_{}".format(simulation_name))
 save = True
 
@@ -109,23 +112,24 @@ if save:
     os.mkdir(os.path.join(save_path, sub_dir, "2D slice"))
     time.sleep(1)
 
-    # Save the data to a single file
-    f = h5py.File(os.path.join(os.path.join(save_path, sub_dir), "Results.h5"), "w")
-    f.create_dataset("use_gradient", data=use_gradient)
-    f.create_dataset("gradient_tolerance", data=gradient_tolerance)
-    f.create_dataset("include_screening", data=include_screening)
-    f.create_dataset("inserted_res_length", data=inserted_res_length*1E-6)
-    for el_number, el_name in enumerate(electrode_names):
-        f.create_dataset(el_name, data=-output[el_number]['V'].T)
-    f.create_dataset("xpoints", data=x_eval)
-    f.create_dataset("ypoints", data=y_eval)
-    f.create_dataset("Vres", data=Vres)
-    f.create_dataset("Vtrap", data=Vtrap)
-    f.create_dataset("Vrg", data=Vrg)
-    if Vcg is not None:
-        f.create_dataset("Vcg", data=Vcg)
-    f.create_dataset("Vtg", data=Vtg)
-    time.sleep(1)
+    with h5py.File(os.path.join(os.path.join(save_path, sub_dir), "Results.h5"), "w") as f:
+        # Save the data to a single file
+        f.create_dataset("use_gradient", data=use_gradient)
+        f.create_dataset("gradient_tolerance", data=gradient_tolerance)
+        f.create_dataset("include_screening", data=include_screening)
+        f.create_dataset("screening_length", data=screening_length)
+        f.create_dataset("inserted_res_length", data=inserted_res_length*1E-6)
+        for el_number, el_name in enumerate(electrode_names):
+            f.create_dataset(el_name, data=-output[el_number]['V'].T)
+        f.create_dataset("xpoints", data=x_eval)
+        f.create_dataset("ypoints", data=y_eval)
+        f.create_dataset("Vres", data=Vres)
+        f.create_dataset("Vtrap", data=Vtrap)
+        f.create_dataset("Vrg", data=Vrg)
+        if Vcg is not None:
+            f.create_dataset("Vcg", data=Vcg)
+        f.create_dataset("Vtg", data=Vtg)
+        time.sleep(1)
 
 # Take a slice through the middle, at y = 0 to check if the insertion went well and doesn't produce weird gradients.
 if 0:
@@ -215,7 +219,7 @@ for k, s in tqdm(enumerate(sweep_points)):
                                                   trap_annealing_steps[0], res, trap_minimizer_options,
                                                   maximum_dx=max_x_displacement, maximum_dy=max_y_displacement)
 
-    if 0:
+    if 1:
         electron_pos = best_res['x'][::2] * 1E6
 
         fig = plt.figure(figsize=(7., 3.))
@@ -225,30 +229,31 @@ for k, s in tqdm(enumerate(sweep_points)):
         plt.xlabel("$x$ ($\mu$m)")
         plt.ylabel("Potential energy (eV)")
         plt.title("%s = %.2f V" % (electrode_names[SweepIdx], coefficients[SweepIdx]))
-        plt.ylim(-0.7, -0.6)
+        plt.ylim(-0.7, -0.0)
 
         if save:
             common.save_figure(fig, save_path=os.path.join(save_path, sub_dir, "2D slice"))
 
         plt.close(fig)
 
-    # PP = anneal.PostProcess(save_path=conv_mon_save_path)
-    # x_plot = np.arange(-2E-6, +6E-6, dx) #x_eval*1E-6
-    # y_plot = y_eval*1E-6
-    # PP.save_snapshot(best_res['x'], xext=x_plot, yext=y_plot, Uext=CMS.V,
-    #                  figsize=(6.5, 3.), common=common, title="%s = %.2f V" % (electrode_names[SweepIdx], coefficients[SweepIdx]),
-    #                  clim=(-0.75 * Vres, 0),
-    #                  #clim=(-0.75 * max(sweep_points), 0),
-    #                  draw_resonator_pins=False,
-    #                  draw_from_dxf={'filename':os.path.join(master_path, 'all_electrodes.dxf'),
-    #                                 'plot_options':{'color':'black', 'alpha':0.6, 'lw':0.5}})
-    #
-    # f.create_dataset("step_%04d/electron_final_coordinates" % k, data=best_res['x'])
-    # f.create_dataset("step_%04d/electron_initial_coordinates" % k, data=electron_initial_positions)
-    # f.create_dataset("step_%04d/solution_converged" % k, data=True if best_res['status'] == 0 else False)
-    # f.create_dataset("step_%04d/energy" % k, data=best_res['fun'])
-    # f.create_dataset("step_%04d/jacobian" % k, data=best_res['jac'])
-    #f.create_dataset("step_%04d/electrons_in_trap" % k, data=PP.get_trapped_electrons(best_res['x']))
+    PP = anneal.PostProcess(save_path=conv_mon_save_path)
+    x_plot = np.arange(-2E-6, +6E-6, dx) #x_eval*1E-6
+    y_plot = y_eval*1E-6
+    PP.save_snapshot(best_res['x'], xext=x_plot, yext=y_plot, Uext=CMS.V,
+                     figsize=(6.5, 3.), common=common, title="%s = %.2f V" % (electrode_names[SweepIdx], coefficients[SweepIdx]),
+                     clim=(-0.75 * Vres, 0),
+                     #clim=(-0.75 * max(sweep_points), 0),
+                     draw_resonator_pins=False,
+                     draw_from_dxf={'filename':os.path.join(master_path, 'all_electrodes.dxf'),
+                                    'plot_options':{'color':'black', 'alpha':0.6, 'lw':0.5}})
+
+    with h5py.File(os.path.join(os.path.join(save_path, sub_dir), "Results.h5"), "w") as f:
+        f.create_dataset("step_%04d/electron_final_coordinates" % k, data=best_res['x'])
+        f.create_dataset("step_%04d/electron_initial_coordinates" % k, data=electron_initial_positions)
+        f.create_dataset("step_%04d/solution_converged" % k, data=True if best_res['status'] == 0 else False)
+        f.create_dataset("step_%04d/energy" % k, data=best_res['fun'])
+        f.create_dataset("step_%04d/jacobian" % k, data=best_res['jac'])
+        f.create_dataset("step_%04d/electrons_in_trap" % k, data=PP.get_trapped_electrons(best_res['x']))
 
     # Use the solution from the current time step as the initial condition for the next timestep!
     electron_initial_positions = best_res['x']

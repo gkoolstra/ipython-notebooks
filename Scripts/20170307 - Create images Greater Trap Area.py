@@ -2,6 +2,7 @@ import platform, os, sys, h5py, matplotlib
 if platform.system() == 'Linux':
     matplotlib.use('Agg')
 import numpy as np
+import h5py, matplotlib
 from termcolor import cprint
 from tqdm import tqdm
 from matplotlib import pyplot as plt
@@ -11,6 +12,8 @@ plt.close('all')
 if platform.system() == 'Windows':
     sys.path.append(r'C:\Users\slab\Documents\Code')
     sys.path.append(r'D:\BEMPP_shared\Modules')
+elif platform.system() == 'Linux':
+    matplotlib.use('Agg')
 else:
     sys.path.append("/Users/gkoolstra/Documents/Code")
 
