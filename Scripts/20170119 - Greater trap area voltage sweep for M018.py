@@ -1,5 +1,8 @@
-from matplotlib import pyplot as plt
 import os, time, h5py, platform
+if platform.system() == 'Linux':
+    import matplotlib
+    matplotlib.use('Agg')
+    from matplotlib import pyplot as plt
 import numpy as np
 from tqdm import tqdm
 from scipy.optimize import minimize
@@ -7,7 +10,7 @@ from termcolor import cprint
 from Common import common
 from TrapAnalysis import trap_analysis, artificial_anneal as anneal
 
-simulation_name = "M018V5_Greater_Trap_Area"
+simulation_name = "M018V6_Greater_Trap_Area"
 include_screening = True
 helium_thickness = 0.75E-6
 screening_length = 2 * helium_thickness
@@ -26,8 +29,8 @@ create_movie = True
 # Set any of these to None if you can only apply GND
 # Only the first electrode in this list that is set to an array instead of float will be swept.
 Vres = 1.00 #np.arange(2.00, 0.04, -0.01)
-Vtrap = 0.95 #np.arange(1.00, 1.50, +0.01)
-Vrg = np.arange(0.00, -0.96, -0.01) #0.10 * Vres
+Vtrap = 0.93 #np.arange(1.00, 1.50, +0.01)
+Vrg = np.arange(0.33, -1.01, -0.01) #0.10 * Vres
 Vtg = -1.00
 Vcg = None
 
@@ -66,9 +69,10 @@ x_trap_init, y_trap_init = anneal.r2xy(electron_initial_positions)
 
 if platform.system() == 'Windows':
     save_path = r"S:\Gerwin\Electron on helium\Electron optimization\Realistic potential\Single electron loading"
+elif platform.system() == 'Linux':
+    save_path = r"/mnt/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Single electron loading"
 else:
-    #save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Single electron loading"
-    save_path = r"/Users/gkoolstra/Desktop/Single electron loading"
+    save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Single electron loading"
 sub_dir = time.strftime("%y%m%d_%H%M%S_{}".format(simulation_name))
 save = True
 
@@ -80,13 +84,15 @@ dx = np.diff(xeval)[0]*1E-6
 dy = np.diff(yeval)[0]*1E-6
 
 if platform.system() == 'Windows':
-    master_path = r"S:\Gerwin\Electron on helium\Maxwell\M018 Yggdrasil\M018V4"
+    master_path = r"S:\Gerwin\Electron on helium\Maxwell\M018 Yggdrasil\M018V6"
+elif platform.system() == 'Linux':
+    master_path = r"/mnt/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/M018V6"
 else:
-    master_path = r"/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/M018V4"
+    master_path = r"/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/M018V6"
 
 x_eval, y_eval, output = anneal.load_data(master_path, xeval=xeval, yeval=yeval, mirror_y=True,
                                           extend_resonator=False, insert_resonator=True, do_plot=inspect_potentials,
-                                          inserted_res_length=inserted_res_length, smoothen_xy=(0.25E-6, dy))
+                                          inserted_res_length=inserted_res_length, smoothen_xy=(0.30E-6, 0.10E-6))
 
 if inspect_potentials:
     plt.show()
@@ -209,7 +215,7 @@ for k, s in tqdm(enumerate(sweep_points)):
                                                   trap_annealing_steps[0], res, trap_minimizer_options,
                                                   maximum_dx=max_x_displacement, maximum_dy=max_y_displacement)
 
-    if 1:
+    if 0:
         electron_pos = best_res['x'][::2] * 1E6
 
         fig = plt.figure(figsize=(7., 3.))
@@ -226,23 +232,23 @@ for k, s in tqdm(enumerate(sweep_points)):
 
         plt.close(fig)
 
-    PP = anneal.PostProcess(save_path=conv_mon_save_path)
-    x_plot = np.arange(-2E-6, +6E-6, dx) #x_eval*1E-6
-    y_plot = y_eval*1E-6
-    PP.save_snapshot(best_res['x'], xext=x_plot, yext=y_plot, Uext=CMS.V,
-                     figsize=(6.5, 3.), common=common, title="%s = %.2f V" % (electrode_names[SweepIdx], coefficients[SweepIdx]),
-                     clim=(-0.75 * Vres, 0),
-                     #clim=(-0.75 * max(sweep_points), 0),
-                     draw_resonator_pins=False,
-                     draw_from_dxf={'filename':os.path.join(master_path, 'all_electrodes.dxf'),
-                                    'plot_options':{'color':'black', 'alpha':0.6, 'lw':0.5}})
-
-    f.create_dataset("step_%04d/electron_final_coordinates" % k, data=best_res['x'])
-    f.create_dataset("step_%04d/electron_initial_coordinates" % k, data=electron_initial_positions)
-    f.create_dataset("step_%04d/solution_converged" % k, data=True if best_res['status'] == 0 else False)
-    f.create_dataset("step_%04d/energy" % k, data=best_res['fun'])
-    f.create_dataset("step_%04d/jacobian" % k, data=best_res['jac'])
-    f.create_dataset("step_%04d/electrons_in_trap" % k, data=PP.get_trapped_electrons(best_res['x']))
+    # PP = anneal.PostProcess(save_path=conv_mon_save_path)
+    # x_plot = np.arange(-2E-6, +6E-6, dx) #x_eval*1E-6
+    # y_plot = y_eval*1E-6
+    # PP.save_snapshot(best_res['x'], xext=x_plot, yext=y_plot, Uext=CMS.V,
+    #                  figsize=(6.5, 3.), common=common, title="%s = %.2f V" % (electrode_names[SweepIdx], coefficients[SweepIdx]),
+    #                  clim=(-0.75 * Vres, 0),
+    #                  #clim=(-0.75 * max(sweep_points), 0),
+    #                  draw_resonator_pins=False,
+    #                  draw_from_dxf={'filename':os.path.join(master_path, 'all_electrodes.dxf'),
+    #                                 'plot_options':{'color':'black', 'alpha':0.6, 'lw':0.5}})
+    #
+    # f.create_dataset("step_%04d/electron_final_coordinates" % k, data=best_res['x'])
+    # f.create_dataset("step_%04d/electron_initial_coordinates" % k, data=electron_initial_positions)
+    # f.create_dataset("step_%04d/solution_converged" % k, data=True if best_res['status'] == 0 else False)
+    # f.create_dataset("step_%04d/energy" % k, data=best_res['fun'])
+    # f.create_dataset("step_%04d/jacobian" % k, data=best_res['jac'])
+    #f.create_dataset("step_%04d/electrons_in_trap" % k, data=PP.get_trapped_electrons(best_res['x']))
 
     # Use the solution from the current time step as the initial condition for the next timestep!
     electron_initial_positions = best_res['x']
