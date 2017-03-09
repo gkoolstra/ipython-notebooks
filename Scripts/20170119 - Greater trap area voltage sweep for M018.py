@@ -30,7 +30,7 @@ create_movie = False
 # Only the first electrode in this list that is set to an array instead of float will be swept.
 Vres = 1.00 #np.arange(2.00, 0.04, -0.01)
 Vtrap = 1.00 #np.arange(1.00, 1.50, +0.01)
-Vrg = np.arange(0.34, -0.50, -0.01) #0.10 * Vres
+Vrg = np.arange(0.34, -0.50, -0.001) #0.10 * Vres
 Vtg = -0.70
 Vcg = None
 
@@ -252,8 +252,8 @@ for k, s in tqdm(enumerate(sweep_points)):
         return np.log10(np.sqrt(CMS.dVdx(x, y)**2 + CMS.dVdy(x, y)**2))
 
     PP = anneal.PostProcess(save_path=conv_mon_save_path)
-    x_plot = np.arange(-1E-6, +1E-6, dx)
-    y_plot = y_eval[np.logical_and(y_eval > -1, y_eval < 1)]*1E-6
+    x_plot = np.arange(-2E-6, +6E-6, dx)
+    y_plot = y_eval*1E-6 #[np.logical_and(y_eval > -1, y_eval < 1)]*1E-6
     PP.save_snapshot(best_res['x'], xext=x_plot, yext=y_plot, Uext=magE,
                      figsize=(6.5, 3.), common=common, title="Gradient at %s = %.3f V" % (electrode_names[SweepIdx], coefficients[SweepIdx]),
                      clim=(1.5, 6.0),
