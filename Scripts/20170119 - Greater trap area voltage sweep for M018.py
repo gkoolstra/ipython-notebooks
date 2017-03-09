@@ -30,7 +30,7 @@ create_movie = False
 # Only the first electrode in this list that is set to an array instead of float will be swept.
 Vres = 1.00 #np.arange(2.00, 0.04, -0.01)
 Vtrap = 1.00 #np.arange(1.00, 1.50, +0.01)
-Vrg = np.arange(0.34, -0.50, -0.0025) #0.10 * Vres
+Vrg = np.arange(0.34, -0.50, -0.01) #0.10 * Vres
 Vtg = -0.70
 Vcg = None
 
@@ -163,19 +163,20 @@ for k, s in tqdm(enumerate(sweep_points)):
     # Units of x_eval and y_eval are um
 
     CMS = anneal.TrapAreaSolver(x_eval * 1E-6, y_eval * 1E-6, -combined_potential.T,
-                                spline_order_x=3, spline_order_y=3, smoothing=0.00,
+                                spline_order_x=3, spline_order_y=3, smoothing=0.01,
                                 include_screening=include_screening, screening_length=screening_length)
 
     X_eval, Y_eval = np.meshgrid(x_eval * 1E-6, y_eval * 1E-6)
 
     # Solve for the electron positions in the trap area!
-    ConvMon = anneal.ConvergenceMonitor(Uopt=CMS.Vtotal, grad_Uopt=CMS.grad_total, N=10,
+    ConvMon = anneal.ConvergenceMonitor(Uopt=CMS.Vtotal, grad_Uopt=CMS.grad_total, N=1,
                                         Uext=CMS.V,
                                         xext=xeval * 1E-6, yext=yeval * 1E-6, verbose=False, eps=epsilon,
                                         save_path=conv_mon_save_path)
+
     ConvMon.figsize = (8., 2.)
 
-    trap_minimizer_options = {'method' : 'CG',
+    trap_minimizer_options = {'method' : 'L-BFGS-B',
                               'jac': CMS.grad_total,
                               'options': {'disp': False, 'gtol': gradient_tolerance, 'eps': epsilon},
                               'callback': None}
@@ -198,6 +199,13 @@ for k, s in tqdm(enumerate(sweep_points)):
                 print("%d/%d unbounded electrons removed. %d electrons remain." % (np.int(len(res['x'][::2]) - len(best_x)), len(res['x'][::2]), len(best_x)))
             res = minimize(CMS.Vtotal, electron_initial_positions, **trap_minimizer_options)
         else:
+            best_x, best_y = anneal.r2xy(res['x'])
+            idxs = np.union1d(np.where(best_x < -2E-6)[0], np.where(np.abs(best_y) > 2E-6)[0])
+            if len(idxs) > 0:
+                print("Following electrons are outside the simulation domain")
+                for i in idxs:
+                    print("(x,y) = (%.3f, %.3f) um"%(best_x[i]*1E6, best_y[i]*1E6))
+            # To skip the infinite while loop.
             break
 
     if res['status'] > 0:
@@ -240,24 +248,22 @@ for k, s in tqdm(enumerate(sweep_points)):
 
         plt.close(fig)
 
-    PP = anneal.PostProcess(save_path=conv_mon_save_path)
-    x_plot = np.arange(-2E-6, +6E-6, dx)
-    y_plot = y_eval*1E-6
-    PP.save_snapshot(best_res['x'], xext=x_plot, yext=y_plot, Uext=CMS.dVdx,
-                     figsize=(6.5, 3.), common=common, title="$\partial V/\partial x$ : %s = %.3f V" % (electrode_names[SweepIdx], coefficients[SweepIdx]),
-                     clim=(-4E5, 4E5),
-                     draw_resonator_pins=False,
-                     draw_from_dxf={'filename' : os.path.join(master_path, 'all_electrodes.dxf'),
-                                    'plot_options' : {'color' : 'black', 'alpha' : 0.6, 'lw' : 0.5}})
+    def magE(x, y):
+        return np.log10(np.sqrt(CMS.dVdx(x, y)**2 + CMS.dVdy(x, y)**2))
 
-    PP.save_snapshot(best_res['x'], xext=x_plot, yext=y_plot, Uext=CMS.dVdy,
-                     figsize=(6.5, 3.), common=common, title="$\partial V/\partial y$ : %s = %.3f V" % (electrode_names[SweepIdx], coefficients[SweepIdx]),
-                     clim=(-8E5, 8E5),
+    PP = anneal.PostProcess(save_path=conv_mon_save_path)
+    x_plot = np.arange(-1E-6, +1E-6, dx)
+    y_plot = y_eval[np.logical_and(y_eval > -1, y_eval < 1)]*1E-6
+    PP.save_snapshot(best_res['x'], xext=x_plot, yext=y_plot, Uext=magE,
+                     figsize=(6.5, 3.), common=common, title="Gradient at %s = %.3f V" % (electrode_names[SweepIdx], coefficients[SweepIdx]),
+                     clim=(1.5, 6.0),
                      draw_resonator_pins=False,
                      draw_from_dxf={'filename' : os.path.join(master_path, 'all_electrodes.dxf'),
                                     'plot_options' : {'color' : 'black', 'alpha' : 0.6, 'lw' : 0.5}})
 
     f = h5py.File(os.path.join(os.path.join(save_path, sub_dir), "Results.h5"), "a")
+    #f.create_dataset("step_%04d/x_during_simulation" % k, data=ConvMon.curr_xk)
+    #|f.create_dataset("step_%04d/jac_during_simulation" % k, data=ConvMon.jac)
     f.create_dataset("step_%04d/initial_jacobian" % k, data=initial_jacobian)
     f.create_dataset("step_%04d/final_jacobian" % k, data=best_res['jac'])
     f.create_dataset("step_%04d/electron_initial_coordinates" % k, data=electron_initial_positions)
