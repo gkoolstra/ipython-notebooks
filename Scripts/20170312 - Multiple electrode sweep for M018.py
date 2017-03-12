@@ -22,32 +22,29 @@ trap_annealing_steps = []
 max_x_displacement = 0.05E-6
 max_y_displacement = 0.05E-6
 remove_unbound_electrons = False
-remove_bounds = (-np.inf, -3E-6)
+remove_bounds = (-np.inf, -2E-6)
 show_final_result = False
 create_movie = True
-bivariate_spline_smoothing = 0.001
+bivariate_spline_smoothing = 0.01
 
-# Set any of these to None if you can only apply GND
-# Only the first electrode in this list that is set to an array instead of float will be swept.
-Vres = 1.00 #np.arange(2.00, 0.04, -0.01)
-Vtrap = 0.98 #np.arange(1.00, 1.50, +0.01)
-Vrg = np.arange(0.40, -0.90, -0.005) #0.10 * Vres
-mask = Vrg < -0.30
-Vtg = -1.50 * np.ones(len(Vrg)); Vtg[mask] = np.linspace(-1.50, -0.70, np.sum(mask))# Continuously deform the trap guard according to the resonator guard as well.#-1.50
+# All of the ones below, except for Vcg, must be arrays of the same length.
+pt1 = np.arange(0.40, -0.90, -0.005)
+pt2 = np.arange(0.98, 0.70, -0.0025)
+
+Vrg = np.append(pt1, pt1[-1] * np.ones(len(pt2)))
+Vres = 1.00 * np.ones(len(pt1) + len(pt2))
+Vtrap = np.append(0.98 * np.ones(len(pt1)), pt2)
+mask = pt1 < -0.30
+Vtg = -1.50 * np.ones(len(pt1)); Vtg[mask] = np.linspace(-1.50, -0.70, np.sum(mask))# Continuously deform the trap guard according to the resonator guard as well.#-1.50
+Vtg = np.append(Vtg, Vtg[-1] * np.ones(len(pt2)))
 Vcg = None
-
-plt.figure()
-plt.plot(Vrg, '-r', label="Resonator guard")
-plt.plot(Vtg, '-g', label='Trap guard')
-plt.legend()
-plt.show()
 
 N_electrons = 160
 N_rows = N_electrons
 row_spacing = 0.10E-6
 N_cols = 1
 col_spacing = 0.10E-6
-box_length = 20E-6 #This is the box length from the simulation in Maxwell.
+box_length = 20.0E-6 #This is the box length from the simulation in Maxwell.
 
 inserted_res_length = 80 # This is the length to be inserted in the Maxwell potential; units are in um
 electrode_names = ['resonator', 'trap', 'res_guard', 'trap_guard']
@@ -86,7 +83,7 @@ sub_dir = time.strftime("%y%m%d_%H%M%S_{}".format(simulation_name))
 save = True
 
 # Evaluate all files in the following range.
-xeval = np.linspace(-4.0, box_length*1E6, 751)
+xeval = np.linspace(-3.3, box_length*1E6, 1000)
 yeval = anneal.construct_symmetric_y(-4.0, 201)
 
 dx = np.diff(xeval)[0]*1E-6
@@ -109,6 +106,16 @@ if inspect_potentials:
 # Note: x_eval and y_eval are 2D arrays that contain the x and y coordinates at which the potentials are evaluated
 conv_mon_save_path = os.path.join(save_path, sub_dir, "Figures")
 
+fig = plt.figure(figsize=(5., 3.))
+plt.plot(Vrg, '-r', label="Resonator guard")
+plt.plot(Vtg, '-g', label='Trap guard')
+plt.plot(Vres, '-k', label='Resonator')
+plt.plot(Vtrap, '-m', label='Trap')
+plt.legend(loc=0, prop={"size": 8})
+plt.ylim(np.min([np.min(Vrg), np.min(Vtg), np.min(Vres), np.min(Vtrap)])-0.1,
+         np.max([np.max(Vrg), np.max(Vtg), np.max(Vres), np.max(Vtrap)])+0.1)
+plt.show()
+
 if save:
     # Create the directories
     os.mkdir(os.path.join(save_path, sub_dir))
@@ -117,6 +124,8 @@ if save:
     time.sleep(1)
     os.mkdir(os.path.join(save_path, sub_dir, "2D slice"))
     time.sleep(1)
+
+    common.save_figure(fig, save_path=os.path.join(save_path, sub_dir))
 
     f = h5py.File(os.path.join(os.path.join(save_path, sub_dir), "Results.h5"), "w")
     # Save the data to a single file
@@ -161,7 +170,9 @@ x_eval, y_eval, cropped_potentials = t.crop_potentials(output, ydomain=None, xdo
 
 for k, s in tqdm(enumerate(sweep_points)):
 
-    coefficients = np.array([Vres, Vtrap, Vrg, Vcg, Vtg])
+    #print(k, np.shape(Vrg), np.shape(Vtg))
+
+    coefficients = np.array([Vres[k], Vtrap[k], Vrg[k], Vcg, Vtg[k]])
     coefficients[SweepIdx] = s
     if Vcg is None:
         coefficients = np.delete(coefficients, 3)
