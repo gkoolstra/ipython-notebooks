@@ -1,4 +1,4 @@
-import os, time, h5py, platform
+import os, time, h5py, platform, json
 if platform.system() == 'Linux':
     import matplotlib
     matplotlib.use('Agg')
@@ -10,22 +10,28 @@ from termcolor import cprint
 from Common import common
 from TrapAnalysis import trap_analysis, artificial_anneal as anneal
 
-simulation_name = "M018V6_Greater_Trap_Area_V6.2"
-include_screening = True
-helium_thickness = 0.75E-6
+with open("settings.json") as datafile:
+    settings = json.load(datafile)
+
+simulation_name = settings['prelims']['simulation_name']
+include_screening = settings['electrostatics']['include_screening']
+helium_thickness = settings['electrostatics']['helium_thickness']
 screening_length = 2 * helium_thickness
-inspect_potentials = False
-use_gradient = True
-gradient_tolerance = 1E1
-epsilon = 1E-10
-trap_annealing_steps = []
-max_x_displacement = 0.05E-6
-max_y_displacement = 0.05E-6
-remove_unbound_electrons = False
-remove_bounds = (-np.inf, -2E-6)
-show_final_result = False
-create_movie = True
-bivariate_spline_smoothing = 0.01
+inspect_potentials = settings['prelims']['inspect_potentials']
+use_gradient = settings['minimizer']['use_gradient']
+gradient_tolerance = settings['minimizer']['gradient_tolerance']
+epsilon = settings['minimizer']['epsilon']
+if settings['electron_handling']['use_annealing']:
+    trap_annealing_steps = [settings['electron_handling']['annealing_temperature']] * settings['electron_handling']['annealing_steps']
+else:
+    trap_annealing_steps = []
+max_x_displacement = settings['electron_handling']['max_x_displacement']
+max_y_displacement = settings['electron_handling']['max_y_displacement']
+remove_unbound_electrons = settings['electron_handling']['remove_unbounded_electrons']
+remove_bounds = settings['electron_handling']['remove_bounds']
+show_final_result = settings['prelims']['show_final_result']
+create_movie = settings['prelims']['create_movie']
+bivariate_spline_smoothing = settings['electrostatics']['bivariate_spline_smoothing']
 
 # All of the ones below, except for Vcg, must be arrays of the same length.
 pt1 = np.arange(0.40, -0.90, -0.005)
@@ -35,18 +41,18 @@ Vrg = np.append(pt1, pt1[-1] * np.ones(len(pt2)))
 Vres = 1.00 * np.ones(len(pt1) + len(pt2))
 Vtrap = np.append(0.98 * np.ones(len(pt1)), pt2)
 mask = pt1 < -0.30
-Vtg = -1.50 * np.ones(len(pt1)); Vtg[mask] = np.linspace(-1.50, -0.70, np.sum(mask))# Continuously deform the trap guard according to the resonator guard as well.#-1.50
+Vtg = -1.80 * np.ones(len(pt1)); Vtg[mask] = np.linspace(-1.80, -0.70, np.sum(mask))# Continuously deform the trap guard according to the resonator guard as well.#-1.50
 Vtg = np.append(Vtg, Vtg[-1] * np.ones(len(pt2)))
 Vcg = None
 
-N_electrons = 160
-N_rows = N_electrons
-row_spacing = 0.10E-6
-N_cols = 1
-col_spacing = 0.10E-6
-box_length = 20.0E-6 #This is the box length from the simulation in Maxwell.
+N_electrons = settings['initial_condition']["N_electrons"]
+N_rows = int(settings['initial_condition']['N_rows'])
+row_spacing = settings['initial_condition']['row_spacing']
+N_cols = settings['initial_condition']['N_cols']
+col_spacing = settings['initial_condition']['col_spacing']
+box_length = settings['electrostatics']['box_length'] #This is the box length from the simulation in Maxwell.
+inserted_res_length = settings['electrostatics']['inserted_res_length'] # This is the length to be inserted in the Maxwell potential; units are in um
 
-inserted_res_length = 80 # This is the length to be inserted in the Maxwell potential; units are in um
 electrode_names = ['resonator', 'trap', 'res_guard', 'trap_guard']
 if Vcg is not None:
     electrode_names.insert(3, 'ctr_guard')
@@ -69,15 +75,16 @@ cprint("Sweeping %s from %.2f V to %.2f V" % (electrode_names[SweepIdx], sweep_p
 simulation_name += "_%s_sweep" % (electrode_names[SweepIdx])
 
 electron_initial_positions = anneal.get_rectangular_initial_condition(N_electrons, N_rows=N_rows, N_cols=N_cols,
-                                                                      x0=(inserted_res_length*1E-6 + box_length)/2., y0=0.0E-6, dx=0.40E-6)
+                                                                      x0=(inserted_res_length + box_length)/2., y0=0.0E-6, dx=0.40E-6)
 x_trap_init, y_trap_init = anneal.r2xy(electron_initial_positions)
 
-if platform.system() == 'Windows':
-    save_path = r"S:\Gerwin\Electron on helium\Electron optimization\Realistic potential\Single electron loading"
-elif platform.system() == 'Linux':
-    save_path = r"/mnt/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Single electron loading"
-else:
-    save_path = r"/Users/gkoolstra/Desktop/Single electron loading/Data"
+save_path = settings["file_handling"]["save_path"]
+# if platform.system() == 'Windows':
+#     save_path = r"S:\Gerwin\Electron on helium\Electron optimization\Realistic potential\Single electron loading"
+# elif platform.system() == 'Linux':
+#     save_path = r"/mnt/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Single electron loading"
+# else:
+#     save_path = r"/Users/gkoolstra/Desktop/Single electron loading/Data"
 
 sub_dir = time.strftime("%y%m%d_%H%M%S_{}".format(simulation_name))
 save = True
@@ -89,16 +96,17 @@ yeval = anneal.construct_symmetric_y(-4.0, 201)
 dx = np.diff(xeval)[0]*1E-6
 dy = np.diff(yeval)[0]*1E-6
 
-if platform.system() == 'Windows':
-    master_path = r"S:\Gerwin\Electron on helium\Maxwell\M018 Yggdrasil\M018V6\V6.2"
-elif platform.system() == 'Linux':
-    master_path = r"/mnt/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/M018V6/V6.2"
-else:
-    master_path = r"/Users/gkoolstra/Desktop/Single electron loading/Potentials/M018V6/V6.2"
+master_path = settings["file_handling"]["input_data_path"]
+# if platform.system() == 'Windows':
+#     master_path = r"S:\Gerwin\Electron on helium\Maxwell\M018 Yggdrasil\M018V6\V6.2"
+# elif platform.system() == 'Linux':
+#     master_path = r"/mnt/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/M018V6/V6.2"
+# else:
+#     master_path = r"/Users/gkoolstra/Desktop/Single electron loading/Potentials/M018V6/V6.2"
 
 x_eval, y_eval, output = anneal.load_data(master_path, xeval=xeval, yeval=yeval, mirror_y=True,
                                           extend_resonator=False, insert_resonator=True, do_plot=inspect_potentials,
-                                          inserted_res_length=inserted_res_length, smoothen_xy=(0.40E-6, 2*dy))
+                                          inserted_res_length=inserted_res_length*1E6, smoothen_xy=(0.40E-6, 2*dy))
 
 if inspect_potentials:
     plt.show()
@@ -133,7 +141,7 @@ if save:
     f.create_dataset("gradient_tolerance", data=gradient_tolerance)
     f.create_dataset("include_screening", data=include_screening)
     f.create_dataset("screening_length", data=screening_length)
-    f.create_dataset("inserted_res_length", data=inserted_res_length*1E-6)
+    f.create_dataset("inserted_res_length", data=inserted_res_length)
     for el_number, el_name in enumerate(electrode_names):
         f.create_dataset(el_name, data=-output[el_number]['V'].T)
     f.create_dataset("xpoints", data=x_eval)
