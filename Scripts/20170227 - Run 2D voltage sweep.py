@@ -1,7 +1,7 @@
 import numpy as np
-resVs = np.arange(0.975, 0.025, -0.025)
+trapVs = np.arange(-0.80, -2.00, 0.05)
 
 # Sweep the trap for each resonator voltage point instead of the other way around.
-for Vres in resVs:
-    Vtrap = np.arange(Vres-0.2, Vres+0.2, +0.01)
-    exec(open("20170119 - Greater trap area voltage sweep for M018.py").read())
+for trapV in trapVs:
+    Vrg = np.arange(0.40, -0.70, -0.005)
+    exec(open("20170312 - Multiple electrode sweep for M018.py").read())
