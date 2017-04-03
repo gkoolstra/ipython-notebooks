@@ -3,6 +3,7 @@ if platform.system() == 'Linux':
     import matplotlib
     matplotlib.use('Agg')
 from matplotlib import pyplot as plt
+from shutil import copyfile
 import numpy as np
 from tqdm import tqdm
 from scipy.optimize import minimize
@@ -34,16 +35,27 @@ create_movie = settings['prelims']['create_movie']
 bivariate_spline_smoothing = settings['electrostatics']['bivariate_spline_smoothing']
 
 # All of the ones below, except for Vcg, must be arrays of the same length.
-pt1 = np.arange(0.40, -0.90, -0.005)
-pt2 = np.arange(0.98, 0.70, -0.0025)
+# pt1 = np.arange(0.40, -0.90, -0.005)
+# pt2 = np.arange(0.98, 0.70, -0.0025)
+#
+# Vrg = np.append(pt1, pt1[-1] * np.ones(len(pt2)))
+# Vres = 1.00 * np.ones(len(pt1) + len(pt2))
+# Vtrap = np.append(0.98 * np.ones(len(pt1)), pt2)
+# mask = pt1 < -0.30
+# Vtg = -1.80 * np.ones(len(pt1)); Vtg[mask] = np.linspace(-1.80, -0.70, np.sum(mask))# Continuously deform the trap guard according to the resonator guard as well.#-1.50
+# Vtg = np.append(Vtg, Vtg[-1] * np.ones(len(pt2)))
+# Vcg = None
 
-Vrg = np.append(pt1, pt1[-1] * np.ones(len(pt2)))
-Vres = 1.00 * np.ones(len(pt1) + len(pt2))
-Vtrap = np.append(0.98 * np.ones(len(pt1)), pt2)
-mask = pt1 < -0.30
-Vtg = -1.80 * np.ones(len(pt1)); Vtg[mask] = np.linspace(-1.80, -0.70, np.sum(mask))# Continuously deform the trap guard according to the resonator guard as well.#-1.50
-Vtg = np.append(Vtg, Vtg[-1] * np.ones(len(pt2)))
+startpoint = -0.600
+endpoint = -0.100
+dV = 0.005
+
+Vtg = np.array(np.arange(startpoint, endpoint, dV).tolist() + np.arange(endpoint, startpoint, -dV).tolist())
+Vres = 1.00 * np.ones(len(Vtg))
+Vtrap = 0.75 * np.ones(len(Vtg))
+Vrg = -0.80 * np.ones(len(Vtg))
 Vcg = None
+
 
 N_electrons = settings['initial_condition']["N_electrons"]
 N_rows = int(settings['initial_condition']['N_rows'])
@@ -52,6 +64,7 @@ N_cols = settings['initial_condition']['N_cols']
 col_spacing = settings['initial_condition']['col_spacing']
 box_length = settings['electrostatics']['box_length'] #This is the box length from the simulation in Maxwell.
 inserted_res_length = settings['electrostatics']['inserted_res_length'] # This is the length to be inserted in the Maxwell potential; units are in um
+inserted_trap_length = settings['electrostatics']['inserted_trap_length'] # This is the length to be inserted in the Maxwell potential; units are in um
 
 electrode_names = ['resonator', 'trap', 'res_guard', 'trap_guard']
 if Vcg is not None:
@@ -75,7 +88,11 @@ cprint("Sweeping %s from %.2f V to %.2f V" % (electrode_names[SweepIdx], sweep_p
 simulation_name += "_%s_sweep" % (electrode_names[SweepIdx])
 
 electron_initial_positions = anneal.get_rectangular_initial_condition(N_electrons, N_rows=N_rows, N_cols=N_cols,
-                                                                      x0=(inserted_res_length + box_length)/2., y0=0.0E-6, dx=0.40E-6)
+                                                                      x0=-box_length/2.0 + inserted_trap_length/2.0,
+                                                                      y0=0.0E-6, dx=col_spacing)
+
+# electron_initial_positions = anneal.get_rectangular_initial_condition(N_electrons, N_rows=N_rows, N_cols=N_cols,
+#                                                                       x0=(inserted_res_length + box_length)/2., y0=0.0E-6, dx=0.40E-6)
 x_trap_init, y_trap_init = anneal.r2xy(electron_initial_positions)
 
 save_path = settings["file_handling"]["save_path"]
@@ -90,7 +107,8 @@ sub_dir = time.strftime("%y%m%d_%H%M%S_{}".format(simulation_name))
 save = True
 
 # Evaluate all files in the following range.
-xeval = np.linspace(-3.3, box_length*1E6, 1000)
+xeval = np.linspace(-box_length*1E6, box_length*1E6, 2000)
+#xeval = np.linspace(-3.3, box_length*1E6, 1000)
 yeval = anneal.construct_symmetric_y(-4.0, 201)
 
 dx = np.diff(xeval)[0]*1E-6
@@ -105,7 +123,8 @@ master_path = settings["file_handling"]["input_data_path"]
 #     master_path = r"/Users/gkoolstra/Desktop/Single electron loading/Potentials/M018V6/V6.2"
 
 x_eval, y_eval, output = anneal.load_data(master_path, xeval=xeval, yeval=yeval, mirror_y=True,
-                                          extend_resonator=False, insert_resonator=True, do_plot=inspect_potentials,
+                                          extend_resonator=False, inserted_trap_length=inserted_trap_length*1E6,
+                                          do_plot=inspect_potentials,
                                           inserted_res_length=inserted_res_length*1E6, smoothen_xy=(0.40E-6, 2*dy))
 
 if inspect_potentials:
@@ -134,6 +153,9 @@ if save:
     time.sleep(1)
 
     common.save_figure(fig, save_path=os.path.join(save_path, sub_dir))
+
+    # Copy settings file to the directory
+    copyfile("settings.json", os.path.join(save_path, sub_dir, "settings.json"))
 
     f = h5py.File(os.path.join(os.path.join(save_path, sub_dir), "Results.h5"), "w")
     # Save the data to a single file
@@ -238,10 +260,11 @@ for k, s in tqdm(enumerate(sweep_points)):
     if res['status'] > 0:
         cprint("WARNING: Initial minimization for Trap did not converge!", "red")
         print("Final L-inf norm of gradient = %.2f eV/m" % (np.amax(res['jac'])))
+        best_res = res
         if k == 0:
             cprint("Please check your initial condition, are all electrons confined in the simulation area?", "red")
             break
-        best_res = res
+
     if len(trap_annealing_steps) > 0:
         # cprint("SUCCESS: Initial minimization for Trap converged!", "green")
         # This maps the electron positions within the simulation domain
@@ -279,13 +302,14 @@ for k, s in tqdm(enumerate(sweep_points)):
         return np.log10(np.sqrt(CMS.dVdx(x, y)**2 + CMS.dVdy(x, y)**2))
 
     PP = anneal.PostProcess(save_path=conv_mon_save_path)
-    x_plot = np.arange(-2E-6, +6E-6, dx)
-    y_plot = y_eval*1E-6 #[np.logical_and(y_eval > -1, y_eval < 1)]*1E-6
+    x_plot = np.arange(-7E-6, +2E-6, dx) + inserted_trap_length
+    y_plot = y_eval*1E-6
     PP.save_snapshot(best_res['x'], xext=x_plot, yext=y_plot, Uext=magE,
                      figsize=(6.5, 3.), common=common, title="Gradient at %s = %.3f V" % (electrode_names[SweepIdx], coefficients[SweepIdx]),
                      clim=(1.5, 6.0),
                      draw_resonator_pins=False,
                      draw_from_dxf={'filename' : os.path.join(master_path, 'all_electrodes.dxf'),
+                                    'offset' : (inserted_trap_length*1E6, 0E-6),
                                     'plot_options' : {'color' : 'black', 'alpha' : 0.6, 'lw' : 0.5}})
 
     f = h5py.File(os.path.join(os.path.join(save_path, sub_dir), "Results.h5"), "a")

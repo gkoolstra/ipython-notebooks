@@ -5,7 +5,7 @@
   "prelims" :
           {"simulation_name" : "M018V6_Greater_Trap_Area_V6.2",
            "create_movie" : 1,
-           "show_final_result" : 0,
+           "show_final_result" : 1,
            "inspect_potentials" : 0},
   "minimizer":
          {"use_gradient" : 1,
@@ -15,14 +15,15 @@
          {"helium_thickness" : 0.75E-6,
           "include_screening" : 1,
           "bivariate_spline_smoothing" : 0.01,
-          "inserted_res_length" : 40E-6,
+          "inserted_res_length" : 0E-6,
+          "inserted_trap_length" : 40E-6,
           "box_length" : 20E-6},
   "initial_condition":
-         {"N_electrons" : 360,
-          "N_rows" : 120,
-          "N_cols" : 3,
-          "row_spacing" : 0.10E-6,
-          "col_spacing" : 0.1E-6},
+         {"N_electrons" : 250,
+          "N_rows" : 125,
+          "N_cols" : 2,
+          "row_spacing" : 0.2E-6,
+          "col_spacing" : 0.2E-6},
   "electron_handling":
          {"use_annealing": 0,
           "annealing_temperature" : 1.0,
@@ -30,5 +31,5 @@
           "max_x_displacement" : 50E-9,
           "max_y_displacement" : 50E-9,
           "remove_unbounded_electrons" : 0,
-          "remove_bounds" : [-Infinity, -2E-6]}
+          "remove_bounds" : [-Infinity, -20E-6]}
 }
