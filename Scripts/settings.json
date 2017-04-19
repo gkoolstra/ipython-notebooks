@@ -16,7 +16,7 @@
           "include_screening" : 1,
           "bivariate_spline_smoothing" : 0.01,
           "inserted_res_length" : 0E-6,
-          "inserted_trap_length" : 40E-6,
+          "inserted_trap_length" : 20E-6,
           "box_length" : 20E-6},
   "initial_condition":
          {"N_electrons" : 250,
