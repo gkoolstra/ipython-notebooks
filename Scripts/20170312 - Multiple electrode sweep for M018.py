@@ -46,14 +46,14 @@ bivariate_spline_smoothing = settings['electrostatics']['bivariate_spline_smooth
 # Vtg = np.append(Vtg, Vtg[-1] * np.ones(len(pt2)))
 # Vcg = None
 
-startpoint = -0.600
-endpoint = -0.100
-dV = 0.005
+startpoint = 0.250
+endpoint = 0.150
+dV = -0.001
 
-Vtg = np.array(np.arange(startpoint, endpoint, dV).tolist() + np.arange(endpoint, startpoint, -dV).tolist())
-Vres = 1.00 * np.ones(len(Vtg))
-Vtrap = 0.75 * np.ones(len(Vtg))
-Vrg = -0.80 * np.ones(len(Vtg))
+Vtrap = np.array(np.arange(startpoint, endpoint, dV).tolist() + np.arange(endpoint, startpoint, -dV).tolist())
+Vres = 0.200 * np.ones(len(Vtrap))
+Vrg = 0.080 * np.ones(len(Vtrap))
+Vtg = 0.080 * np.ones(len(Vtrap))
 Vcg = None
 
 
@@ -281,17 +281,20 @@ for k, s in tqdm(enumerate(sweep_points)):
     else:
         best_res = res
 
-    if 0:
+    if 1:
         electron_pos = best_res['x'][::2] * 1E6
 
         fig = plt.figure(figsize=(7., 3.))
         common.configure_axes(13)
-        plt.plot(x_eval[x_eval < 6], CMS.V(x_eval[x_eval < 6]*1E-6, 0), '-', color='orange')
-        plt.plot(electron_pos[electron_pos < 6], CMS.V(electron_pos[electron_pos < 6] * 1E-6, 0) + 0.005, 'o', color='cornflowerblue')
+        plt.plot(x_eval, CMS.V(x_eval*1E-6, 0), '-', color='orange')
+        plt.plot(best_res['x'][::2] * 1E6, CMS.calculate_mu(best_res['x']), 'o', color='cornflowerblue')
         plt.xlabel("$x$ ($\mu$m)")
         plt.ylabel("Potential energy (eV)")
         plt.title("%s = %.2f V" % (electrode_names[SweepIdx], coefficients[SweepIdx]))
-        plt.ylim(-0.7, -0.55)
+        if k == 0:
+            lims = plt.ylim()
+        plt.ylim(lims)
+        plt.xlim(-7 + inserted_trap_length*1E6, 7 + inserted_trap_length*1E6)
 
         if save:
             common.save_figure(fig, save_path=os.path.join(save_path, sub_dir, "2D slice"))
@@ -302,7 +305,7 @@ for k, s in tqdm(enumerate(sweep_points)):
         return np.log10(np.sqrt(CMS.dVdx(x, y)**2 + CMS.dVdy(x, y)**2))
 
     PP = anneal.PostProcess(save_path=conv_mon_save_path)
-    x_plot = np.arange(-7E-6, +2E-6, dx) + inserted_trap_length
+    x_plot = np.arange(-7E-6, +7E-6, dx) + inserted_trap_length
     y_plot = y_eval*1E-6
     PP.save_snapshot(best_res['x'], xext=x_plot, yext=y_plot, Uext=magE,
                      figsize=(6.5, 3.), common=common, title="Gradient at %s = %.3f V" % (electrode_names[SweepIdx], coefficients[SweepIdx]),
@@ -321,7 +324,10 @@ for k, s in tqdm(enumerate(sweep_points)):
     f.create_dataset("step_%04d/electron_final_coordinates" % k, data=best_res['x'])
     f.create_dataset("step_%04d/final_energy" % k, data=best_res['fun'])
     f.create_dataset("step_%04d/solution_converged" % k, data=True if best_res['status'] == 0 else False)
-    f.create_dataset("step_%04d/electrons_in_trap" % k, data=PP.get_trapped_electrons(best_res['x'], trap_area_x=(-1.2E-6, +1.2E-6)))
+    f.create_dataset("step_%04d/electrons_in_trap" % k,
+                     data=PP.get_trapped_electrons(best_res['x'], trap_area_x=(-1.2E-6, +1.2E-6)))
+    f.create_dataset("step_%04d/mu" % k, data=CMS.calculate_mu(best_res['x']))
+
     f.close()
 
     # Use the solution from the current time step as the initial condition for the next timestep!

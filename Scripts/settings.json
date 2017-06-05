@@ -1,6 +1,6 @@
 {
   "file_handling" :
-          {"save_path" : "/Users/gkoolstra/Desktop/Single electron loading/Data",
+          {"save_path" : "/Volumes/slab-1/Gerwin/Electron on helium/Electron optimization/Realistic potential/Trap signal exploration",
            "input_data_path" : "/Users/gkoolstra/Desktop/Single electron loading/Potentials/M018V6/V6.2"},
   "prelims" :
           {"simulation_name" : "M018V6_Greater_Trap_Area_V6.2",
