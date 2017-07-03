@@ -1,9 +1,9 @@
 {
   "file_handling" :
-          {"save_path" : "/Volumes/slab-1/Gerwin/Electron on helium/Electron optimization/Realistic potential/Trap signal exploration",
-           "input_data_path" : "/Users/gkoolstra/Desktop/Single electron loading/Potentials/M018V6/V6.2"},
+          {"save_path" : "/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Trap signal exploration",
+           "input_data_path" : "/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/M018V6/With L3 etch"},
   "prelims" :
-          {"simulation_name" : "M018V6_Greater_Trap_Area_V6.2",
+          {"simulation_name" : "M018V6_Verify_Experiment",
            "create_movie" : 1,
            "show_final_result" : 1,
            "inspect_potentials" : 0},
@@ -12,16 +12,16 @@
           "gradient_tolerance" : 1E1,
           "epsilon" : 1E-10},
   "electrostatics":
-         {"helium_thickness" : 0.75E-6,
+         {"helium_thickness" : 1.0E-6,
           "include_screening" : 1,
           "bivariate_spline_smoothing" : 0.01,
           "inserted_res_length" : 0E-6,
           "inserted_trap_length" : 20E-6,
           "box_length" : 20E-6},
   "initial_condition":
-         {"N_electrons" : 250,
-          "N_rows" : 125,
-          "N_cols" : 2,
+         {"N_electrons" : 300,
+          "N_rows" : 50,
+          "N_cols" : 6,
           "row_spacing" : 0.2E-6,
           "col_spacing" : 0.2E-6},
   "electron_handling":

@@ -46,14 +46,16 @@ bivariate_spline_smoothing = settings['electrostatics']['bivariate_spline_smooth
 # Vtg = np.append(Vtg, Vtg[-1] * np.ones(len(pt2)))
 # Vcg = None
 
-startpoint = 0.250
-endpoint = 0.150
-dV = -0.001
+v1 = np.arange(0.000, 0.200, 0.010)
+v2 = np.arange(0.000, -0.30, -0.010)
+v3 = np.array(np.arange(0.200, 0.600, 0.010).tolist() + np.arange(0.600, 0.200, -0.010).tolist())
+v4 = np.arange(v2[-1], v2[0]+0.010, +0.010)
 
-Vtrap = np.array(np.arange(startpoint, endpoint, dV).tolist() + np.arange(endpoint, startpoint, -dV).tolist())
-Vres = 0.200 * np.ones(len(Vtrap))
-Vrg = 0.080 * np.ones(len(Vtrap))
-Vtg = 0.080 * np.ones(len(Vtrap))
+
+Vtrap = np.array(v1.tolist() + list(v1[-1] * np.ones(len(v2))) + v3.tolist() + list(v3[-1] * np.ones(len(v4))))
+Vres = 0.60 * np.ones(len(v1) + len(v2) + len(v3) + len(v4))
+Vrg = np.array(list(0.00 * np.ones(len(v1))) + v2.tolist() + list(v2[-1] * np.ones(len(v3))) + v4.tolist())
+Vtg = 0.00 * np.ones(len(v1) + len(v2) + len(v3) + len(v4))
 Vcg = None
 
 
@@ -88,7 +90,7 @@ cprint("Sweeping %s from %.2f V to %.2f V" % (electrode_names[SweepIdx], sweep_p
 simulation_name += "_%s_sweep" % (electrode_names[SweepIdx])
 
 electron_initial_positions = anneal.get_rectangular_initial_condition(N_electrons, N_rows=N_rows, N_cols=N_cols,
-                                                                      x0=-box_length/2.0 + inserted_trap_length/2.0,
+                                                                      x0=box_length/2.0 + inserted_trap_length + inserted_res_length/2.0,
                                                                       y0=0.0E-6, dx=col_spacing)
 
 # electron_initial_positions = anneal.get_rectangular_initial_condition(N_electrons, N_rows=N_rows, N_cols=N_cols,
@@ -284,9 +286,13 @@ for k, s in tqdm(enumerate(sweep_points)):
     if 1:
         electron_pos = best_res['x'][::2] * 1E6
 
+        voltage_labels = "$V_\mathrm{res}$ = %.2f V\n$V_\mathrm{trap}$ = %.2f V\n$V_\mathrm{rg}$ = %.2f V\n$V_\mathrm{tg}$ = %.2f V" \
+                         % (coefficients[0], coefficients[1], coefficients[2], coefficients[3])
+
         fig = plt.figure(figsize=(7., 3.))
         common.configure_axes(13)
-        plt.plot(x_eval, CMS.V(x_eval*1E-6, 0), '-', color='orange')
+        plt.plot(x_eval, CMS.V(x_eval * 1E-6, 0), '-', lw=0, color='orange', label=voltage_labels)
+        plt.plot(x_eval, CMS.V(x_eval * 1E-6, 0), '-', color='orange')
         plt.plot(best_res['x'][::2] * 1E6, CMS.calculate_mu(best_res['x']), 'o', color='cornflowerblue')
         plt.xlabel("$x$ ($\mu$m)")
         plt.ylabel("Potential energy (eV)")
@@ -295,6 +301,7 @@ for k, s in tqdm(enumerate(sweep_points)):
             lims = plt.ylim()
         plt.ylim(lims)
         plt.xlim(-7 + inserted_trap_length*1E6, 7 + inserted_trap_length*1E6)
+        plt.legend(loc=1, numpoints=1, frameon=False, prop={'size' : 10})
 
         if save:
             common.save_figure(fig, save_path=os.path.join(save_path, sub_dir, "2D slice"))
@@ -345,6 +352,16 @@ if create_movie:
         # Move the file from the Figures folder to the sub folder
         os.rename(os.path.join(save_path, sub_dir, "Figures", simulation_name + ".mp4"),
                   os.path.join(save_path, sub_dir, simulation_name + ".mp4"))
+
+        # Create a movie of the 2D slices
+        ConvMon.save_path = os.path.join(save_path, sub_dir, "2D slice")
+        ConvMon.create_movie(fps=10,
+                             filenames_in=time.strftime("%Y%m%d")+"_figure_%05d.png",
+                             filename_out=simulation_name + ".mp4")
+
+        # Move the file from the 2D slice folder to the sub folder
+        os.rename(os.path.join(save_path, sub_dir, "2D slice", simulation_name + ".mp4"),
+                  os.path.join(save_path, sub_dir, simulation_name + "_2D_slice.mp4"))
     except:
         print("Failed making a movie!")
 
