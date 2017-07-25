@@ -46,16 +46,25 @@ bivariate_spline_smoothing = settings['electrostatics']['bivariate_spline_smooth
 # Vtg = np.append(Vtg, Vtg[-1] * np.ones(len(pt2)))
 # Vcg = None
 
-v1 = np.arange(0.000, 0.200, 0.010)
-v2 = np.arange(0.000, -0.30, -0.010)
-v3 = np.array(np.arange(0.200, 0.600, 0.010).tolist() + np.arange(0.600, 0.200, -0.010).tolist())
-v4 = np.arange(v2[-1], v2[0]+0.010, +0.010)
+# Vrg = np.arange(0.00, -0.50, -0.005)
+# Vtrap = (0.120 + 0.040) * np.ones(len(Vrg))
+# Vres = 0.600 * np.ones(len(Vrg))
+# Vtg = np.zeros(len(Vrg))
 
+vrg_isolate = -0.45
+vrg_isolate_stop = -0.295
+vtrap_park = 0.320
+vtrap_unload_stop = 0.165
 
-Vtrap = np.array(v1.tolist() + list(v1[-1] * np.ones(len(v2))) + v3.tolist() + list(v3[-1] * np.ones(len(v4))))
-Vres = 0.60 * np.ones(len(v1) + len(v2) + len(v3) + len(v4))
-Vrg = np.array(list(0.00 * np.ones(len(v1))) + v2.tolist() + list(v2[-1] * np.ones(len(v3))) + v4.tolist())
-Vtg = 0.00 * np.ones(len(v1) + len(v2) + len(v3) + len(v4))
+v1 = np.arange(0.00, vrg_isolate, -0.01).tolist()
+v2 = np.arange(vtrap_park, vtrap_unload_stop, -0.005).tolist()
+v3 = np.arange(vrg_isolate, vrg_isolate_stop, 0.005).tolist()
+v4 = np.arange(vrg_isolate_stop, 0.00, +0.01).tolist()
+
+Vres = 0.600 * np.ones(len(v1) + len(v2) + len(v4))
+Vtrap = list(vtrap_park*np.ones(len(v1))) + v2 + list(vtrap_unload_stop*np.ones(len(v4)))
+Vrg = v1 + v3 + v4
+Vtg = 0.000 * np.ones(len(v1) + len(v2) + len(v4))
 Vcg = None
 
 
@@ -293,7 +302,8 @@ for k, s in tqdm(enumerate(sweep_points)):
         common.configure_axes(13)
         plt.plot(x_eval, CMS.V(x_eval * 1E-6, 0), '-', lw=0, color='orange', label=voltage_labels)
         plt.plot(x_eval, CMS.V(x_eval * 1E-6, 0), '-', color='orange')
-        plt.plot(best_res['x'][::2] * 1E6, CMS.calculate_mu(best_res['x']), 'o', color='cornflowerblue')
+        plt.plot(best_res['x'][::2] * 1E6, CMS.calculate_mu(best_res['x']), 'o', mec='none',
+                 ms=4, color='cornflowerblue')
         plt.xlabel("$x$ ($\mu$m)")
         plt.ylabel("Potential energy (eV)")
         plt.title("%s = %.2f V" % (electrode_names[SweepIdx], coefficients[SweepIdx]))
