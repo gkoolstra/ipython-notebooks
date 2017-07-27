@@ -46,26 +46,27 @@ bivariate_spline_smoothing = settings['electrostatics']['bivariate_spline_smooth
 # Vtg = np.append(Vtg, Vtg[-1] * np.ones(len(pt2)))
 # Vcg = None
 
-# Vrg = np.arange(0.00, -0.50, -0.005)
-# Vtrap = (0.120 + 0.040) * np.ones(len(Vrg))
-# Vres = 0.600 * np.ones(len(Vrg))
-# Vtg = np.zeros(len(Vrg))
-
-vrg_isolate = -0.45
-vrg_isolate_stop = -0.295
-vtrap_park = 0.320
-vtrap_unload_stop = 0.165
-
-v1 = np.arange(0.00, vrg_isolate, -0.01).tolist()
-v2 = np.arange(vtrap_park, vtrap_unload_stop, -0.005).tolist()
-v3 = np.arange(vrg_isolate, vrg_isolate_stop, 0.005).tolist()
-v4 = np.arange(vrg_isolate_stop, 0.00, +0.01).tolist()
-
-Vres = 0.600 * np.ones(len(v1) + len(v2) + len(v4))
-Vtrap = list(vtrap_park*np.ones(len(v1))) + v2 + list(vtrap_unload_stop*np.ones(len(v4)))
-Vrg = v1 + v3 + v4
-Vtg = 0.000 * np.ones(len(v1) + len(v2) + len(v4))
+Vrg = np.arange(0.00, -0.50-0.005, -0.005)
+Vtrap = (0.120 + offset) * np.ones(len(Vrg))
+Vres = 0.600 * np.ones(len(Vrg))
+Vtg = np.zeros(len(Vrg))
 Vcg = None
+
+# vrg_isolate = -0.45
+# vrg_isolate_stop = -0.295
+# vtrap_park = 0.320
+# vtrap_unload_stop = 0.165
+#
+# v1 = np.arange(0.00, vrg_isolate, -0.01).tolist()
+# v2 = np.arange(vtrap_park, vtrap_unload_stop, -0.005).tolist()
+# v3 = np.arange(vrg_isolate, vrg_isolate_stop, 0.005).tolist()
+# v4 = np.arange(vrg_isolate_stop, 0.00, +0.01).tolist()
+#
+# Vres = 0.600 * np.ones(len(v1) + len(v2) + len(v4))
+# Vtrap = list(vtrap_park*np.ones(len(v1))) + v2 + list(vtrap_unload_stop*np.ones(len(v4)))
+# Vrg = v1 + v3 + v4
+# Vtg = 0.000 * np.ones(len(v1) + len(v2) + len(v4))
+# Vcg = None
 
 
 N_electrons = settings['initial_condition']["N_electrons"]
@@ -152,7 +153,7 @@ plt.plot(Vtrap, '-m', label='Trap')
 plt.legend(loc=0, prop={"size": 8})
 plt.ylim(np.min([np.min(Vrg), np.min(Vtg), np.min(Vres), np.min(Vtrap)])-0.1,
          np.max([np.max(Vrg), np.max(Vtg), np.max(Vres), np.max(Vtrap)])+0.1)
-plt.show()
+# plt.show()
 
 if save:
     # Create the directories
