@@ -1,7 +1,7 @@
 {
   "file_handling" :
-          {"save_path" : "/Users/gkoolstra/Desktop/Electron on Helium Fast ResG Sweep",
-           "input_data_path" : "/Users/gkoolstra/Desktop/Electron on Helium Fast ResG Sweep/With L3 etch"},
+          {"save_path" : "/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential",
+           "input_data_path" : "/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/M018V6/With L3 etch"},
   "prelims" :
           {"simulation_name" : "M018V6_Fast_Rg_Sweep",
            "create_movie" : 1,
@@ -19,9 +19,9 @@
           "inserted_trap_length" : 20E-6,
           "box_length" : 20E-6},
   "initial_condition":
-         {"N_electrons" : 250,
+         {"N_electrons" : 150,
           "N_rows" : 50,
-          "N_cols" : 5,
+          "N_cols" : 3,
           "row_spacing" : 0.2E-6,
           "col_spacing" : 0.2E-6},
   "electron_handling":
