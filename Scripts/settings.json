@@ -4,8 +4,8 @@
            "input_data_path" : "/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/M018V6/With L3 etch"},
   "prelims" :
           {"simulation_name" : "M018V6_Fast_Rg_Sweep",
-           "create_movie" : 1,
-           "show_final_result" : 0,
+           "create_movie" : 0,
+           "show_final_result" : 1,
            "inspect_potentials" : 0},
   "minimizer":
          {"use_gradient" : 1,
