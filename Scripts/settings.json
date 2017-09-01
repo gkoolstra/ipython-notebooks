@@ -1,7 +1,7 @@
 {
   "file_handling" :
           {"save_path" : "/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential",
-           "input_data_path" : "/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/M018V6/With L3 etch"},
+           "input_data_path" : "/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/M018V6/With L3 etch - just trap"},
   "prelims" :
           {"simulation_name" : "M018V6_Fast_Rg_Sweep",
            "create_movie" : 0,
@@ -9,14 +9,14 @@
            "inspect_potentials" : 0},
   "minimizer":
          {"use_gradient" : 1,
-          "gradient_tolerance" : 1E1,
+          "gradient_tolerance" : 1E-1,
           "epsilon" : 1E-10},
   "electrostatics":
-         {"helium_thickness" : 1.0E-6,
+         {"helium_thickness" : 0.8E-6,
           "include_screening" : 1,
-          "bivariate_spline_smoothing" : 0.01,
+          "bivariate_spline_smoothing" : 0.005,
           "inserted_res_length" : 0E-6,
-          "inserted_trap_length" : 20E-6,
+          "inserted_trap_length" : 0E-6,
           "box_length" : 20E-6},
   "initial_condition":
          {"N_electrons" : 150,

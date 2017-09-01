@@ -6,7 +6,7 @@ def get_resonator_constants():
     Returns a dictionary of resonator constants used in the calculations in this module.
     :return: {f0, Z0, Q, input power}
     """
-    constants = {'f0': 8E9, 'Z0': 70.0, 'Q': 10000, 'P': -100, 'l': 3000E-6}
+    constants = {'f0': 6.405E9, 'Z0': 90.0, 'Q': 18000, 'P': -100, 'l': 4500E-6}
     return constants
 
 def get_physical_constants():
@@ -91,7 +91,7 @@ def setup_eom(electron_positions, Vres, x_symmetric, Uinterp_symmetric, Uinterp,
     L = r['Z0'] / omega0
     C = 1 / (omega0 ** 2 * L)
 
-    RS = anneal.ResonatorSolver(x_symmetric * 1E-6, -Vres * Uinterp_symmetric, efield_data=Uinterp[0])
+    RS = anneal.ResonatorSolver(x_symmetric, -Vres * Uinterp_symmetric, efield_data=Uinterp[0])
 
     num_electrons = np.int(len(electron_positions) / 2)
     xi, yi = anneal.r2xy(electron_positions)

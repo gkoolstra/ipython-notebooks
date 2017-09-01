@@ -19,29 +19,30 @@ from TrapAnalysis import trap_analysis, import_data, artificial_anneal as anneal
 
 # Parameters:
 box_length = 40E-6
-#N_electrons = 300
+N_electrons = 50
 N_rows = 1
 row_spacing = 0.20E-6
-#N_cols = 300
+N_cols = 50
 col_spacing = 0.20E-6
 resVs = np.arange(2.00, 0.04, -0.01)
 
-h = 0.75
+helium_height = 1.00E-6
+screening_length = 2 * 0.80E-6
 fitdomain = (-0.75, 0.75)
 
 epsilon = 1e-10
 use_gradient = True
-gradient_tolerance = 5E0
+gradient_tolerance = 1E-1
 
-annealing_steps = [1.0] * 10
-simulation_name = "M018V3_resonator_Vsweep_%d_electrons" % N_electrons
+annealing_steps = [1.0] * 5
+simulation_name = "M018V6_resonator_Vsweep_%d_electrons" % N_electrons
 save_path = r"/Volumes/slab/Gerwin/Electron on helium/Electron optimization/Realistic potential/Resonator"
 sub_dir = time.strftime("%y%m%d_%H%M%S_{}".format(simulation_name))
 save = True
 create_movie = True
 
 # Load the data from the dsp file:
-path = r'/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/All simulation data M018V3/DCBiasPotential.dsp'
+path = r'/Volumes/slab/Gerwin/Electron on helium/Maxwell/M018 Yggdrasil/M018V6/V6.3/ResonatorBiasSymmetricPotential_1100nm.dsp'
 elements, nodes, elem_solution, bounding_box = import_data.load_dsp(path)
 
 xdata, ydata, Udata = interpolate_slow.prepare_for_interpolation(elements, nodes, elem_solution)
@@ -57,7 +58,7 @@ xinterp, yinterp, Uinterp = interpolate_slow.evaluate_on_grid(xdata, ydata, Udat
                                                      **common.plot_opt("darkorange", msize=6))
 
 xinterp, yinterp, Uinterp = interpolate_slow.evaluate_on_grid(xdata, ydata, Udata, xeval=xeval,
-                                                              yeval=h, clim=(0.00, 1.00),
+                                                              yeval=helium_height*1E6, clim=(0.00, 1.00),
                                                               plot_axes='xy', linestyle='None',
                                                               cmap=plt.cm.viridis, plot_data=False,
                                                               **common.plot_opt("darkorange", msize=6))
@@ -93,8 +94,9 @@ x_box = np.linspace(-1.8E-6, 1.8E-6, 501)
 y_box = np.linspace(-box_length/2, box_length/2, 11)
 X_box, Y_box = np.meshgrid(x_box, y_box)
 
-#electron_initial_positions = anneal.setup_initial_condition(N_electrons, (-1E-6, 1E-6), (-20E-6, 20E-6),
-#                                                             x0=0, y0=0, dx=0.2E-6, dy=2.0E-6)
+if N_cols * col_spacing > box_length:
+    raise ValueError("Placing electrons outside of the box length as initial condition is not allowed! Increase N_rows!")
+
 electron_initial_positions = anneal.get_rectangular_initial_condition(N_electrons, N_rows=N_rows, N_cols=N_cols,
                                                                       x0=0.0E-6, y0=0.0E-6, dx=col_spacing, dy=row_spacing)
 
@@ -127,7 +129,8 @@ f.create_dataset("gradient_tolerance", data=gradient_tolerance)
 conv_mon_save_path = os.path.join(save_path, sub_dir, "Figures")
 
 for k, Vres in tqdm(enumerate(resVs)):
-    EP = anneal.ResonatorSolver(x_symmetric*1E-6, -Vres*Uinterp_symmetric, box_length=box_length, smoothing=0.0)
+    EP = anneal.ResonatorSolver(x_symmetric*1E-6, -Vres*Uinterp_symmetric, box_length=box_length, smoothing=0.0,
+                                include_screening=True, screening_length=screening_length)
 
     if use_gradient:
         jac = EP.grad_total
@@ -142,11 +145,12 @@ for k, Vres in tqdm(enumerate(resVs)):
                                         save_path=conv_mon_save_path, figsize=(4, 6),
                                         coordinate_transformation=coordinate_transformation)
 
-    minimizer_options = {'jac': jac,
+    minimizer_options = {'method' : 'L-BFGS-B',
+                         'jac': EP.grad_total,
                          'options': {'disp': False, 'gtol': gradient_tolerance, 'eps': epsilon},
-                         'callback': ConvMon.monitor_convergence}
+                         'callback': None}
 
-    res = minimize(EP.Vtotal, electron_initial_positions, method='CG', **minimizer_options)
+    res = minimize(EP.Vtotal, electron_initial_positions, **minimizer_options)
 
     if res['status'] > 0:
         cprint("WARNING: Step %d (Vres = %.2f V) did not converge!"%(k,Vres), "red")
@@ -155,7 +159,8 @@ for k, Vres in tqdm(enumerate(resVs)):
     res['x'] = coordinate_transformation(res['x'])
 
     if len(annealing_steps) > 0:
-        res = EP.parallel_perturb_and_solve(EP.Vtotal, len(annealing_steps), annealing_steps[0], res, minimizer_options)
+        #res = EP.parallel_perturb_and_solve(EP.Vtotal, len(annealing_steps), annealing_steps[0], res, minimizer_options)
+        res = EP.sequential_perturb_and_solve(EP.Vtotal, len(annealing_steps), annealing_steps[0], res, minimizer_options)
         res['x'] = coordinate_transformation(res['x'])
 
     resonator_ns_area = anneal.get_electron_density_by_area(anneal.xy2r(res['x'][::2], res['x'][1::2]))
