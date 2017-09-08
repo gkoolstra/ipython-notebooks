@@ -49,3 +49,5 @@ Temporary Items
 \.ipynb_checkpoints
 
 *.pyc
+*.xml
+*.iml
