@@ -11,7 +11,7 @@ from termcolor import cprint
 from Common import common
 from TrapAnalysis import trap_analysis, artificial_anneal as anneal
 
-with open("settings.json") as datafile:
+with open("settings_with_resonator.json") as datafile:
     settings = json.load(datafile)
 
 simulation_name = settings['prelims']['simulation_name']
@@ -46,10 +46,12 @@ bivariate_spline_smoothing = settings['electrostatics']['bivariate_spline_smooth
 # Vtg = np.append(Vtg, Vtg[-1] * np.ones(len(pt2)))
 # Vcg = None
 
-Vrg = np.arange(0.00, -0.50-0.005, -0.005)
-Vtrap = (0.120 + offset) * np.ones(len(Vrg))
-Vres = 0.600 * np.ones(len(Vrg))
-Vtg = np.zeros(len(Vrg))
+offset = 0
+
+Vtrap = np.arange(0.000, 0.450, 0.005)
+Vrg = 0.00 * np.ones(len(Vtrap))
+Vres = 0.600 * np.ones(len(Vtrap))
+Vtg = np.zeros(len(Vtrap))
 Vcg = None
 
 # vrg_isolate = -0.45
@@ -97,7 +99,7 @@ if not(isinstance(sweep_points, np.ndarray)):
 cprint("Sweeping %s from %.2f V to %.2f V" % (electrode_names[SweepIdx], sweep_points[0], sweep_points[-1]),
        "green")
 
-simulation_name += "_%s_sweep" % (electrode_names[SweepIdx])
+# simulation_name += "_%s_sweep" % (electrode_names[SweepIdx])
 
 electron_initial_positions = anneal.get_rectangular_initial_condition(N_electrons, N_rows=N_rows, N_cols=N_cols,
                                                                       x0=box_length/2.0 + inserted_trap_length + inserted_res_length/2.0,
@@ -325,9 +327,9 @@ for k, s in tqdm(enumerate(sweep_points)):
     PP = anneal.PostProcess(save_path=conv_mon_save_path)
     x_plot = np.arange(-7E-6, +7E-6, dx) + inserted_trap_length
     y_plot = y_eval*1E-6
-    PP.save_snapshot(best_res['x'], xext=x_plot, yext=y_plot, Uext=magE,
-                     figsize=(6.5, 3.), common=common, title="Gradient at %s = %.3f V" % (electrode_names[SweepIdx], coefficients[SweepIdx]),
-                     clim=(1.5, 6.0),
+    PP.save_snapshot(best_res['x'], xext=x_plot, yext=y_plot, Uext=CMS.V,
+                     figsize=(6.5, 3.), common=common, title=r"$V_\mathrm{trap}$ = %.3f V" % (Vtrap[k]),
+                     clim=(-0.35, 0.0),
                      draw_resonator_pins=False,
                      draw_from_dxf={'filename' : os.path.join(master_path, 'all_electrodes.dxf'),
                                     'offset' : (inserted_trap_length*1E6, 0E-6),
