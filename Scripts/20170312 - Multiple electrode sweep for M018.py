@@ -35,41 +35,15 @@ create_movie = settings['prelims']['create_movie']
 bivariate_spline_smoothing = settings['electrostatics']['bivariate_spline_smoothing']
 
 # All of the ones below, except for Vcg, must be arrays of the same length.
-# pt1 = np.arange(0.40, -0.90, -0.005)
-# pt2 = np.arange(0.98, 0.70, -0.0025)
-#
-# Vrg = np.append(pt1, pt1[-1] * np.ones(len(pt2)))
-# Vres = 1.00 * np.ones(len(pt1) + len(pt2))
-# Vtrap = np.append(0.98 * np.ones(len(pt1)), pt2)
-# mask = pt1 < -0.30
-# Vtg = -1.80 * np.ones(len(pt1)); Vtg[mask] = np.linspace(-1.80, -0.70, np.sum(mask))# Continuously deform the trap guard according to the resonator guard as well.#-1.50
-# Vtg = np.append(Vtg, Vtg[-1] * np.ones(len(pt2)))
-# Vcg = None
-
 offset = 0
 
-Vtrap = np.arange(0.000, 0.450, 0.005)
-Vrg = 0.00 * np.ones(len(Vtrap))
-Vres = 0.600 * np.ones(len(Vtrap))
+fmu = -2.86 - 6.93 * -0.50
+
+Vtrap = np.arange(0.300, 0.600, 0.005)
+Vrg = -1/1.15 * (Vtrap - fmu) - 0.50
+Vres = 1.00 * np.ones(len(Vtrap))
 Vtg = np.zeros(len(Vtrap))
 Vcg = None
-
-# vrg_isolate = -0.45
-# vrg_isolate_stop = -0.295
-# vtrap_park = 0.320
-# vtrap_unload_stop = 0.165
-#
-# v1 = np.arange(0.00, vrg_isolate, -0.01).tolist()
-# v2 = np.arange(vtrap_park, vtrap_unload_stop, -0.005).tolist()
-# v3 = np.arange(vrg_isolate, vrg_isolate_stop, 0.005).tolist()
-# v4 = np.arange(vrg_isolate_stop, 0.00, +0.01).tolist()
-#
-# Vres = 0.600 * np.ones(len(v1) + len(v2) + len(v4))
-# Vtrap = list(vtrap_park*np.ones(len(v1))) + v2 + list(vtrap_unload_stop*np.ones(len(v4)))
-# Vrg = v1 + v3 + v4
-# Vtg = 0.000 * np.ones(len(v1) + len(v2) + len(v4))
-# Vcg = None
-
 
 N_electrons = settings['initial_condition']["N_electrons"]
 N_rows = int(settings['initial_condition']['N_rows'])
