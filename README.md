@@ -1,4 +1,4 @@
-#Notebook repository
+# Notebook repository
 
 This repository contains Jupyter notebooks and Python scripts for analysis of experimental data, running and analyzing simulations etc. There's a heavy dependence on my other repositories, especially [Trap-Analysis](https://github.com/gkoolstra/Trap-Analysis) and [Common](https://github.com/gkoolstra/Common).  
 
